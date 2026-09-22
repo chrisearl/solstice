@@ -13,6 +13,7 @@ import {
 } from "react";
 import * as THREE from "three";
 import { createCompassTexture } from "@/lib/compass-texture";
+import type { LayoutInsets } from "@/lib/layout-insets";
 import {
   DISC_RADIUS,
   GNOMON_HEIGHT,
@@ -32,6 +33,7 @@ interface SolarSceneProps {
   showSun: boolean;
   showMoon: boolean;
   resetSignal: number;
+  layoutInsets: LayoutInsets;
 }
 
 export default function SolarScene({
@@ -42,6 +44,7 @@ export default function SolarScene({
   showSun,
   showMoon,
   resetSignal,
+  layoutInsets,
 }: SolarSceneProps) {
   return (
     <Canvas
@@ -61,6 +64,7 @@ export default function SolarScene({
           showSun={showSun}
           showMoon={showMoon}
           resetSignal={resetSignal}
+          layoutInsets={layoutInsets}
         />
       </Suspense>
     </Canvas>
@@ -75,6 +79,7 @@ function SceneContent({
   showSun,
   showMoon,
   resetSignal,
+  layoutInsets,
 }: SolarSceneProps) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
 
@@ -137,7 +142,7 @@ function SceneContent({
         zoomSpeed={0.7}
         rotateSpeed={0.75}
       />
-      <FrameCamera resetSignal={resetSignal} controls={controls} />
+      <FrameCamera resetSignal={resetSignal} controls={controls} layoutInsets={layoutInsets} />
     </>
   );
 }
@@ -169,19 +174,14 @@ const APPLIANCE_POINTS = (() => {
   return points;
 })();
 
-function viewInsets(width: number) {
-  // Phone layout stacks the controls under the canvas, so only a small margin is needed.
-  // Desktop overlays a 360px panel and a 220px readout on the full-window canvas.
-  if (width < 1024) return { left: 16, right: 16, top: 14, bottom: 16 };
-  return { left: 384, right: 244, top: 56, bottom: 20 };
-}
-
 function FrameCamera({
   resetSignal,
   controls,
+  layoutInsets,
 }: {
   resetSignal: number;
   controls: RefObject<ComponentRef<typeof OrbitControls> | null>;
+  layoutInsets: LayoutInsets;
 }) {
   const camera = useThree((state) => state.camera);
   const size = useThree((state) => state.size);
@@ -190,7 +190,7 @@ function FrameCamera({
     if (!(camera instanceof THREE.PerspectiveCamera)) return;
     if (size.width < 2 || size.height < 2) return;
 
-    const inset = viewInsets(size.width);
+    const inset = layoutInsets;
     camera.setViewOffset(
       size.width,
       size.height,
@@ -244,7 +244,7 @@ function FrameCamera({
     orbit.maxDistance = Math.max(48, far * 1.7);
     orbit.update();
     orbit.saveState();
-  }, [camera, controls, resetSignal, size.height, size.width]);
+  }, [camera, controls, layoutInsets, resetSignal, size.height, size.width]);
 
   return null;
 }
