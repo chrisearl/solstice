@@ -1,8 +1,16 @@
 "use client";
 
 import { Html, Line, OrbitControls, Stars } from "@react-three/drei";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { type ComponentRef, Suspense, useEffect, useMemo, useRef } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import {
+  type ComponentRef,
+  type RefObject,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from "react";
 import * as THREE from "three";
 import { createCompassTexture } from "@/lib/compass-texture";
 import {
@@ -23,7 +31,7 @@ interface SolarSceneProps {
 export default function SolarScene({ arcs, sun, resetSignal }: SolarSceneProps) {
   return (
     <Canvas
-      camera={{ position: [5.15, 3.55, 6.35], fov: 38, near: 0.1, far: 200 }}
+      camera={{ position: [10.8, 6.4, 13.2], fov: 38, near: 0.1, far: 200 }}
       dpr={[1, 2]}
       gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
       onCreated={({ gl }) => {
@@ -39,10 +47,6 @@ export default function SolarScene({ arcs, sun, resetSignal }: SolarSceneProps) 
 
 function SceneContent({ arcs, sun, resetSignal }: SolarSceneProps) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
-
-  useEffect(() => {
-    controls.current?.reset();
-  }, [resetSignal]);
 
   return (
     <>
@@ -83,15 +87,123 @@ function SceneContent({ arcs, sun, resetSignal }: SolarSceneProps) {
         dampingFactor={0.08}
         enablePan
         minDistance={3.4}
-        maxDistance={16}
+        maxDistance={48}
         minPolarAngle={0.12}
         maxPolarAngle={Math.PI * 0.56}
         target={[0, 0.75, 0]}
         zoomSpeed={0.7}
         rotateSpeed={0.75}
       />
+      <FrameCamera resetSignal={resetSignal} controls={controls} />
     </>
   );
+}
+
+const LOOK_TARGET = new THREE.Vector3(0, 0.75, 0);
+const HOME_DIRECTION = new THREE.Vector3(5.15, 2.8, 6.35).normalize();
+
+/** Disc rim, seasonal arc envelope, and a little room for the arc labels. */
+const APPLIANCE_POINTS = (() => {
+  const points: THREE.Vector3[] = [];
+  for (let i = 0; i < 36; i++) {
+    const angle = (i / 36) * Math.PI * 2;
+    points.push(
+      new THREE.Vector3(Math.sin(angle) * DISC_RADIUS, 0.04, Math.cos(angle) * DISC_RADIUS),
+    );
+  }
+  for (const altitudeDeg of [25, 55, 80]) {
+    const altitude = (altitudeDeg * Math.PI) / 180;
+    const horizontal = Math.cos(altitude) * SKY_RADIUS;
+    const y = Math.sin(altitude) * SKY_RADIUS + 0.45;
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2;
+      points.push(
+        new THREE.Vector3(Math.sin(angle) * horizontal, y, Math.cos(angle) * horizontal),
+      );
+    }
+  }
+  points.push(new THREE.Vector3(0, SKY_RADIUS + 0.7, 0));
+  return points;
+})();
+
+function viewInsets(width: number) {
+  // Phone layout stacks the controls under the canvas, so only a small margin is needed.
+  // Desktop overlays a 360px panel and a 220px readout on the full-window canvas.
+  if (width < 1024) return { left: 16, right: 16, top: 14, bottom: 16 };
+  return { left: 384, right: 244, top: 56, bottom: 20 };
+}
+
+function FrameCamera({
+  resetSignal,
+  controls,
+}: {
+  resetSignal: number;
+  controls: RefObject<ComponentRef<typeof OrbitControls> | null>;
+}) {
+  const camera = useThree((state) => state.camera);
+  const size = useThree((state) => state.size);
+
+  useLayoutEffect(() => {
+    if (!(camera instanceof THREE.PerspectiveCamera)) return;
+    if (size.width < 2 || size.height < 2) return;
+
+    const inset = viewInsets(size.width);
+    camera.setViewOffset(
+      size.width,
+      size.height,
+      (inset.right - inset.left) / 2,
+      (inset.bottom - inset.top) / 2,
+      size.width,
+      size.height,
+    );
+    camera.aspect = size.width / size.height;
+    camera.fov = 38;
+    camera.updateProjectionMatrix();
+
+    const limits = {
+      minX: inset.left,
+      maxX: size.width - inset.right,
+      minY: inset.top,
+      maxY: size.height - inset.bottom,
+    };
+    const place = (distance: number) => {
+      camera.position.copy(HOME_DIRECTION).multiplyScalar(distance).add(LOOK_TARGET);
+      camera.up.set(0, 1, 0);
+      camera.lookAt(LOOK_TARGET);
+      camera.updateMatrixWorld();
+    };
+    const fits = (distance: number) => {
+      place(distance);
+      for (const point of APPLIANCE_POINTS) {
+        const projected = point.clone().project(camera);
+        const x = (projected.x * 0.5 + 0.5) * size.width;
+        const y = (1 - (projected.y * 0.5 + 0.5)) * size.height;
+        if (x < limits.minX || x > limits.maxX || y < limits.minY || y > limits.maxY) return false;
+      }
+      return true;
+    };
+
+    let near = 4;
+    let far = 80;
+    for (let step = 0; step < 22; step++) {
+      const mid = (near + far) / 2;
+      if (fits(mid)) far = mid;
+      else near = mid;
+    }
+
+    place(far * 1.04);
+    camera.updateProjectionMatrix();
+
+    const orbit = controls.current;
+    if (!orbit) return;
+    orbit.target.copy(LOOK_TARGET);
+    orbit.minDistance = 3.4;
+    orbit.maxDistance = Math.max(48, far * 1.7);
+    orbit.update();
+    orbit.saveState();
+  }, [camera, controls, resetSignal, size.height, size.width]);
+
+  return null;
 }
 
 function SkyDome() {

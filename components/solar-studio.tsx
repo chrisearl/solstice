@@ -100,13 +100,13 @@ export function SolarStudio() {
   };
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-[#07080d] text-[#f3efe6]">
-      <div className="absolute inset-0">
+    <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-[#07080d] text-[#f3efe6] lg:block">
+      <div className="relative min-h-0 flex-1 lg:absolute lg:inset-0">
         <SolarScene arcs={model.arcs} sun={sun} resetSignal={resetSignal} />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.42)_100%)]" />
       </div>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.42)_100%)]" />
 
-      <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-end p-0 lg:flex-row lg:items-start lg:justify-between lg:p-3">
+      <div className="z-10 w-full shrink-0 lg:pointer-events-none lg:absolute lg:inset-0 lg:flex lg:flex-row lg:items-start lg:justify-between lg:p-3">
         <div className="pointer-events-auto w-full lg:w-[360px]">
           <ControlPanel
             model={model}
