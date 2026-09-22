@@ -39,6 +39,7 @@ interface SceneHudProps {
   showSun: boolean;
   showMoon: boolean;
   inspectorOpen: boolean;
+  variant?: "full" | "minimal";
   onPlaying: (value: boolean) => void;
   onResetView: () => void;
   onToggleInspector: () => void;
@@ -48,6 +49,25 @@ export function SceneHud(props: SceneHudProps) {
   const location = locationLabel(props.latitude, props.longitude);
   const timeLabel = formatMinutes(props.minutes);
   const dateLabel = formatLongDate(props.model.date);
+
+  if (props.variant === "minimal") {
+    return (
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-end px-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
+        <div className="pointer-events-auto flex gap-1.5">
+          <HudAction
+            label={props.playing ? "Pause day" : "Play day"}
+            pressed={props.playing}
+            onClick={() => props.onPlaying(!props.playing)}
+          >
+            {props.playing ? <Pause /> : <Play />}
+          </HudAction>
+          <HudAction label="Reset camera" onClick={props.onResetView}>
+            <RotateCcw />
+          </HudAction>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 px-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] md:px-4 lg:px-5">
