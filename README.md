@@ -9,15 +9,15 @@ The default place is Orlando, Florida (28.5383, −81.3792).
 ## Run locally
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Open the URL Next.js prints, usually http://localhost:3000.
 
 ```bash
-npm run verify   # solar geometry checks
-npm run build    # production build
+pnpm verify   # solar geometry checks
+pnpm build    # production build
 ```
 
 ## Controls
