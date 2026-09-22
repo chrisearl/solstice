@@ -4,6 +4,7 @@ import {
   Clock,
   Compass,
   MapPin,
+  Moon,
   Pause,
   Play,
   RotateCcw,
@@ -26,6 +27,9 @@ import {
   locationLabel,
   minutesToTimeValue,
   timeValueToMinutes,
+  MOON_ARC_COLOR,
+  type MoonModel,
+  type MoonPlacement,
   type SolarArc,
   type SolarModel,
   type SunPlacement,
@@ -33,7 +37,9 @@ import {
 
 interface ControlPanelProps {
   model: SolarModel;
+  moonModel: MoonModel;
   sun: SunPlacement;
+  moon: MoonPlacement;
   latitude: number;
   longitude: number;
   latText: string;
@@ -42,6 +48,8 @@ interface ControlPanelProps {
   playing: boolean;
   dayIndex: number;
   dayCount: number;
+  showSun: boolean;
+  showMoon: boolean;
   onLatText: (value: string) => void;
   onLngText: (value: string) => void;
   onPreset: (lat: number, lng: number) => void;
@@ -50,6 +58,8 @@ interface ControlPanelProps {
   onMinutes: (value: number) => void;
   onPlaying: (value: boolean) => void;
   onJump: (kind: "summer" | "equinox" | "winter") => void;
+  onShowSun: (value: boolean) => void;
+  onShowMoon: (value: boolean) => void;
   onResetView: () => void;
   onResetPlace: () => void;
 }
@@ -82,30 +92,62 @@ export function ControlPanel(props: ControlPanelProps) {
       </header>
 
       <div className="grid grid-cols-2 gap-2 lg:hidden">
-        <Stat
-          icon={<Compass />}
-          label="Azimuth"
-          value={formatDegrees(props.sun.azimuth)}
-          hint={props.sun.aboveHorizon ? "Above horizon" : "Below horizon"}
-        />
-        <Stat
-          icon={<SunMedium />}
-          label="Altitude"
-          value={formatDegrees(props.sun.altitude)}
-          hint={props.sun.altitude >= 0 ? "Elevation" : "Depression"}
-        />
-        <Stat
-          icon={<Sunrise />}
-          label="Sunrise"
-          value={riseLabel(props.model, props.longitude, "sunrise")}
-          hint={formatDuration(props.model.times.dayLengthMs)}
-        />
-        <Stat
-          icon={<Sunset />}
-          label="Sunset"
-          value={riseLabel(props.model, props.longitude, "sunset")}
-          hint="Mean solar time"
-        />
+        {props.showSun && (
+          <>
+            <Stat
+              icon={<Compass />}
+              label="Sun azimuth"
+              value={formatDegrees(props.sun.azimuth)}
+              hint={props.sun.aboveHorizon ? "Above horizon" : "Below horizon"}
+            />
+            <Stat
+              icon={<SunMedium />}
+              label="Sun altitude"
+              value={formatDegrees(props.sun.altitude)}
+              hint={props.sun.altitude >= 0 ? "Elevation" : "Depression"}
+            />
+            <Stat
+              icon={<Sunrise />}
+              label="Sunrise"
+              value={riseLabel(props.model, props.longitude, "sunrise")}
+              hint={formatDuration(props.model.times.dayLengthMs)}
+            />
+            <Stat
+              icon={<Sunset />}
+              label="Sunset"
+              value={riseLabel(props.model, props.longitude, "sunset")}
+              hint="Mean solar time"
+            />
+          </>
+        )}
+        {props.showMoon && (
+          <>
+            <Stat
+              icon={<Moon />}
+              label="Moon azimuth"
+              value={formatDegrees(props.moon.azimuth)}
+              hint={props.moon.phaseLabel}
+            />
+            <Stat
+              icon={<Moon />}
+              label="Moon altitude"
+              value={formatDegrees(props.moon.altitude)}
+              hint={props.moon.aboveHorizon ? "Above horizon" : "Below horizon"}
+            />
+            <Stat
+              icon={<Moon />}
+              label="Moonrise"
+              value={moonEventLabel(props.moonModel, props.longitude, "rise")}
+              hint={`${Math.round(props.moon.fraction * 100)}% lit`}
+            />
+            <Stat
+              icon={<Moon />}
+              label="Moonset"
+              value={moonEventLabel(props.moonModel, props.longitude, "set")}
+              hint="Mean solar time"
+            />
+          </>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -241,50 +283,114 @@ export function ControlPanel(props: ControlPanelProps) {
         />
       </div>
 
-      <Legend arcs={props.model.arcs} note={props.model.note} />
+      <div className="space-y-2 border-t border-white/10 pt-3">
+        <Label>Sky bodies</Label>
+        <div className="grid grid-cols-2 gap-1.5">
+          <BodyToggle
+            icon={<SunMedium />}
+            label="Sun"
+            active={props.showSun}
+            onClick={() => props.onShowSun(!props.showSun)}
+          />
+          <BodyToggle
+            icon={<Moon />}
+            label="Moon"
+            active={props.showMoon}
+            onClick={() => props.onShowMoon(!props.showMoon)}
+          />
+        </div>
+      </div>
+
+      <Legend
+        arcs={props.model.arcs}
+        note={props.model.note}
+        showSun={props.showSun}
+        showMoon={props.showMoon}
+        moonPhase={props.moon.phaseLabel}
+      />
     </section>
   );
 }
 
 export function StatRail({
   model,
+  moonModel,
   sun,
+  moon,
   longitude,
+  showSun,
+  showMoon,
 }: {
   model: SolarModel;
+  moonModel: MoonModel;
   sun: SunPlacement;
+  moon: MoonPlacement;
   longitude: number;
+  showSun: boolean;
+  showMoon: boolean;
 }) {
   return (
     <aside className="hidden w-[220px] flex-col gap-2 lg:flex">
-      <Stat
-        icon={<Compass />}
-        label="Azimuth"
-        value={formatDegrees(sun.azimuth)}
-        hint="From north, clockwise"
-      />
-      <Stat
-        icon={<SunMedium />}
-        label="Altitude"
-        value={formatDegrees(sun.altitude)}
-        hint={sun.aboveHorizon ? "Above the horizon" : "Below the horizon"}
-      />
-      <Stat
-        icon={<Sunrise />}
-        label="Sunrise"
-        value={riseLabel(model, longitude, "sunrise")}
-        hint={
-          model.times.dayLengthMs
-            ? `${formatDuration(model.times.dayLengthMs)} of daylight`
-            : "Mean solar time"
-        }
-      />
-      <Stat
-        icon={<Sunset />}
-        label="Sunset"
-        value={riseLabel(model, longitude, "sunset")}
-        hint="Mean solar time"
-      />
+      {showSun && (
+        <>
+          <Stat
+            icon={<Compass />}
+            label="Sun azimuth"
+            value={formatDegrees(sun.azimuth)}
+            hint="From north, clockwise"
+          />
+          <Stat
+            icon={<SunMedium />}
+            label="Sun altitude"
+            value={formatDegrees(sun.altitude)}
+            hint={sun.aboveHorizon ? "Above the horizon" : "Below the horizon"}
+          />
+          <Stat
+            icon={<Sunrise />}
+            label="Sunrise"
+            value={riseLabel(model, longitude, "sunrise")}
+            hint={
+              model.times.dayLengthMs
+                ? `${formatDuration(model.times.dayLengthMs)} of daylight`
+                : "Mean solar time"
+            }
+          />
+          <Stat
+            icon={<Sunset />}
+            label="Sunset"
+            value={riseLabel(model, longitude, "sunset")}
+            hint="Mean solar time"
+          />
+        </>
+      )}
+      {showMoon && (
+        <>
+          <Stat
+            icon={<Moon />}
+            label="Moon azimuth"
+            value={formatDegrees(moon.azimuth)}
+            hint={moon.phaseLabel}
+          />
+          <Stat
+            icon={<Moon />}
+            label="Moon altitude"
+            value={formatDegrees(moon.altitude)}
+            hint={moon.aboveHorizon ? "Above the horizon" : "Below the horizon"}
+          />
+          <Stat
+            icon={<Moon />}
+            label="Moonrise"
+            value={moonEventLabel(moonModel, longitude, "rise")}
+            hint={`${Math.round(moon.fraction * 100)}% illuminated`}
+          />
+          <Stat
+            icon={<Moon />}
+            label="Moonset"
+            value={moonEventLabel(moonModel, longitude, "set")}
+            hint="Mean solar time"
+          />
+        </>
+      )}
     </aside>
   );
 }
@@ -296,6 +402,16 @@ function riseLabel(
 ): string {
   if (model.times.alwaysUp) return which === "sunrise" ? "Up all day" : "No set";
   if (model.times.alwaysDown) return which === "sunrise" ? "No rise" : "Down all day";
+  return formatMeanTime(model.times[which], longitude);
+}
+
+function moonEventLabel(
+  model: MoonModel,
+  longitude: number,
+  which: "rise" | "set",
+): string {
+  if (model.times.alwaysUp) return which === "rise" ? "Up all day" : "No set";
+  if (model.times.alwaysDown) return which === "rise" ? "No rise" : "Down all day";
   return formatMeanTime(model.times[which], longitude);
 }
 
@@ -376,23 +492,81 @@ function Jump({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-function Legend({ arcs, note }: { arcs: SolarArc[]; note: string | null }) {
+function BodyToggle({
+  icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      variant={active ? "default" : "outline"}
+      size="sm"
+      className={
+        active
+          ? "bg-[#f0b429] text-[#1b1406] hover:bg-[#f0b429]/90"
+          : "border-white/10 bg-white/5 text-white/75 hover:bg-white/10"
+      }
+      aria-pressed={active}
+      onClick={onClick}
+    >
+      <span className="[&_svg]:size-3.5">{icon}</span>
+      {label}
+    </Button>
+  );
+}
+
+function Legend({
+  arcs,
+  note,
+  showSun,
+  showMoon,
+  moonPhase,
+}: {
+  arcs: SolarArc[];
+  note: string | null;
+  showSun: boolean;
+  showMoon: boolean;
+  moonPhase: string;
+}) {
   return (
     <div className="space-y-2 border-t border-white/10 pt-3">
       <p className="text-[11px] tracking-[0.16em] text-white/45 uppercase">Sky arcs</p>
       <ul className="space-y-1.5">
-        {arcs.map((arc) => (
-          <li key={arc.id} className="flex items-center justify-between gap-3 text-sm">
+        {showSun &&
+          arcs.map((arc) => (
+            <li key={arc.id} className="flex items-center justify-between gap-3 text-sm">
+              <span className="flex items-center gap-2 text-white/80">
+                <span
+                  className="h-[3px] w-6 rounded-full"
+                  style={{ background: arc.color, boxShadow: `0 0 8px ${arc.color}` }}
+                />
+                {arc.label}
+              </span>
+              <span className="font-mono text-xs text-white/40">{arc.detail}</span>
+            </li>
+          ))}
+        {showMoon && (
+          <li className="flex items-center justify-between gap-3 text-sm">
             <span className="flex items-center gap-2 text-white/80">
               <span
                 className="h-[3px] w-6 rounded-full"
-                style={{ background: arc.color, boxShadow: `0 0 8px ${arc.color}` }}
+                style={{
+                  background: MOON_ARC_COLOR,
+                  boxShadow: `0 0 8px ${MOON_ARC_COLOR}`,
+                }}
               />
-              {arc.label}
+              Moon path
             </span>
-            <span className="font-mono text-xs text-white/40">{arc.detail}</span>
+            <span className="font-mono text-xs text-white/40">{moonPhase}</span>
           </li>
-        ))}
+        )}
       </ul>
       {note && <p className="text-xs leading-relaxed text-white/50">{note}</p>}
       <p className="text-xs leading-relaxed text-white/40">

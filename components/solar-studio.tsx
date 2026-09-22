@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ControlPanel, StatRail } from "@/components/control-panel";
 import {
   ORLANDO,
+  buildMoonModel,
   buildSolarModel,
   coordinateStatus,
   dayIndexFromLocalDate,
@@ -12,6 +13,7 @@ import {
   daysInYear,
   locationLabel,
   parseIsoDate,
+  placeMoon,
   placeSun,
   seasonalDates,
 } from "@/lib/solar";
@@ -35,6 +37,8 @@ export function SolarStudio() {
   const [latitude, setLatitude] = useState(ORLANDO.lat);
   const [longitude, setLongitude] = useState(ORLANDO.lng);
   const [resetSignal, setResetSignal] = useState(0);
+  const [showSun, setShowSun] = useState(true);
+  const [showMoon, setShowMoon] = useState(true);
 
   useEffect(() => {
     if (!playing) return;
@@ -78,6 +82,16 @@ export function SolarStudio() {
     [model, minutes, latitude, longitude],
   );
 
+  const moonModel = useMemo(
+    () => buildMoonModel(model.date, latitude, longitude),
+    [model.date, latitude, longitude],
+  );
+
+  const moon = useMemo(
+    () => placeMoon(model.date, minutes, latitude, longitude),
+    [model.date, minutes, latitude, longitude],
+  );
+
   const applyLatitude = (value: string) => {
     setLatText(value);
     if (coordinateStatus(value, -90, 90) === "valid") {
@@ -102,7 +116,15 @@ export function SolarStudio() {
   return (
     <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-[#07080d] text-[#f3efe6] lg:block">
       <div className="relative min-h-0 flex-1 lg:absolute lg:inset-0">
-        <SolarScene arcs={model.arcs} sun={sun} resetSignal={resetSignal} />
+        <SolarScene
+          arcs={model.arcs}
+          sun={sun}
+          moon={moon}
+          moonArc={moonModel.arc}
+          showSun={showSun}
+          showMoon={showMoon}
+          resetSignal={resetSignal}
+        />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.42)_100%)]" />
       </div>
 
@@ -110,7 +132,9 @@ export function SolarStudio() {
         <div className="pointer-events-auto w-full lg:w-[360px]">
           <ControlPanel
             model={model}
+            moonModel={moonModel}
             sun={sun}
+            moon={moon}
             latitude={latitude}
             longitude={longitude}
             latText={latText}
@@ -119,6 +143,8 @@ export function SolarStudio() {
             playing={playing}
             dayIndex={dayIndex}
             dayCount={daysInYear(year)}
+            showSun={showSun}
+            showMoon={showMoon}
             onLatText={applyLatitude}
             onLngText={applyLongitude}
             onPreset={applyPreset}
@@ -140,6 +166,8 @@ export function SolarStudio() {
               setYear(date.getUTCFullYear());
               setDayIndex(dayIndexFromUtcDate(date));
             }}
+            onShowSun={setShowSun}
+            onShowMoon={setShowMoon}
             onResetView={() => setResetSignal((value) => value + 1)}
             onResetPlace={() => {
               applyPreset(ORLANDO.lat, ORLANDO.lng);
@@ -148,13 +176,23 @@ export function SolarStudio() {
               setDayIndex(today.dayIndex);
               setMinutes(15 * 60);
               setPlaying(false);
+              setShowSun(true);
+              setShowMoon(true);
             }}
           />
         </div>
 
         <div className="pointer-events-none absolute top-3 right-3 hidden lg:block">
           <div className="pointer-events-auto">
-            <StatRail model={model} sun={sun} longitude={longitude} />
+            <StatRail
+              model={model}
+              moonModel={moonModel}
+              sun={sun}
+              moon={moon}
+              longitude={longitude}
+              showSun={showSun}
+              showMoon={showMoon}
+            />
           </div>
         </div>
       </div>
@@ -166,8 +204,10 @@ export function SolarStudio() {
       </div>
 
       <p className="sr-only">
-        Three-dimensional chart of the sun path for {locationLabel(latitude, longitude)}. Azimuth{" "}
-        {sun.azimuth.toFixed(1)} degrees, altitude {sun.altitude.toFixed(1)} degrees.
+        Three-dimensional chart of the sky for {locationLabel(latitude, longitude)}. Sun azimuth{" "}
+        {sun.azimuth.toFixed(1)} degrees, altitude {sun.altitude.toFixed(1)} degrees. Moon azimuth{" "}
+        {moon.azimuth.toFixed(1)} degrees, altitude {moon.altitude.toFixed(1)} degrees, phase{" "}
+        {moon.phaseLabel}.
       </p>
     </div>
   );
