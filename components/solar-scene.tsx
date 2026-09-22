@@ -17,6 +17,8 @@ import {
   DISC_RADIUS,
   GNOMON_HEIGHT,
   SKY_RADIUS,
+  type MoonPlacement,
+  type SkyPath,
   type SolarArc,
   type SunPlacement,
   type Vec3,
@@ -25,10 +27,22 @@ import {
 interface SolarSceneProps {
   arcs: SolarArc[];
   sun: SunPlacement;
+  moon: MoonPlacement;
+  moonArc: SkyPath;
+  showSun: boolean;
+  showMoon: boolean;
   resetSignal: number;
 }
 
-export default function SolarScene({ arcs, sun, resetSignal }: SolarSceneProps) {
+export default function SolarScene({
+  arcs,
+  sun,
+  moon,
+  moonArc,
+  showSun,
+  showMoon,
+  resetSignal,
+}: SolarSceneProps) {
   return (
     <Canvas
       camera={{ position: [10.8, 6.4, 13.2], fov: 38, near: 0.1, far: 200 }}
@@ -39,13 +53,29 @@ export default function SolarScene({ arcs, sun, resetSignal }: SolarSceneProps) 
       }}
     >
       <Suspense fallback={null}>
-        <SceneContent arcs={arcs} sun={sun} resetSignal={resetSignal} />
+        <SceneContent
+          arcs={arcs}
+          sun={sun}
+          moon={moon}
+          moonArc={moonArc}
+          showSun={showSun}
+          showMoon={showMoon}
+          resetSignal={resetSignal}
+        />
       </Suspense>
     </Canvas>
   );
 }
 
-function SceneContent({ arcs, sun, resetSignal }: SolarSceneProps) {
+function SceneContent({
+  arcs,
+  sun,
+  moon,
+  moonArc,
+  showSun,
+  showMoon,
+  resetSignal,
+}: SolarSceneProps) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
 
   return (
@@ -64,7 +94,7 @@ function SceneContent({ arcs, sun, resetSignal }: SolarSceneProps) {
       <ambientLight intensity={0.28} />
       <hemisphereLight args={["#24324a", "#090b10", 0.55]} />
       <directionalLight position={[6, 8, 3]} intensity={0.4} color="#d5e2f5" />
-      {sun.altitude > -2 && (
+      {showSun && sun.altitude > -2 && (
         <pointLight
           position={[sun.position.x, Math.max(sun.position.y, 0.2), sun.position.z]}
           intensity={sun.aboveHorizon ? 18 : 2}
@@ -73,14 +103,27 @@ function SceneContent({ arcs, sun, resetSignal }: SolarSceneProps) {
           color="#ffc98a"
         />
       )}
+      {showMoon && moon.aboveHorizon && (
+        <pointLight
+          position={[moon.position.x, Math.max(moon.position.y, 0.2), moon.position.z]}
+          intensity={4.5 * moon.fraction}
+          distance={22}
+          decay={2}
+          color="#d8e4f4"
+        />
+      )}
       <CompassDisc />
       <Gnomon />
-      {arcs.map((arc) => (
-        <SkyArc key={arc.id} arc={arc} />
-      ))}
-      <SunBody sun={sun} />
-      <ShadowRig sun={sun} />
-      <Bearing sun={sun} />
+      {showSun &&
+        arcs.map((arc) => (
+          <SkyArc key={arc.id} arc={arc} />
+        ))}
+      {showMoon && <SkyArc arc={moonArc} />}
+      {showSun && <SunBody sun={sun} />}
+      {showSun && <ShadowRig sun={sun} />}
+      {showSun && <Bearing sun={sun} color="#ffd78a" />}
+      {showMoon && <MoonBody moon={moon} />}
+      {showMoon && <Bearing sun={moon} color="#d8e4f4" />}
       <OrbitControls
         ref={controls}
         enableDamping
@@ -322,7 +365,7 @@ function Gnomon() {
   );
 }
 
-function SkyArc({ arc }: { arc: SolarArc }) {
+function SkyArc({ arc }: { arc: SkyPath }) {
   const geometry = useMemo(() => tubeFrom(arc.points, arc.emphasized ? 0.028 : 0.015, arc.closed), [
     arc.points,
     arc.emphasized,
@@ -528,14 +571,127 @@ function ShadowRig({ sun }: { sun: SunPlacement }) {
   );
 }
 
-function Bearing({ sun }: { sun: SunPlacement }) {
+function Bearing({
+  sun,
+  color,
+}: {
+  sun: Pick<SunPlacement, "bearing" | "aboveHorizon">;
+  color: string;
+}) {
   return (
     <mesh position={[sun.bearing.x, sun.bearing.y, sun.bearing.z]}>
       <sphereGeometry args={[0.045, 16, 16]} />
       <meshBasicMaterial
-        color={sun.aboveHorizon ? "#ffd78a" : "#8d7a68"}
+        color={sun.aboveHorizon ? color : "#6f7788"}
         toneMapped={false}
       />
     </mesh>
+  );
+}
+
+function createMoonPhaseTexture(fraction: number, waxing: boolean) {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  const center = size / 2;
+  const radius = size * 0.46;
+
+  ctx.clearRect(0, 0, size, size);
+  ctx.fillStyle = "#2a3344";
+  ctx.beginPath();
+  ctx.arc(center, center, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  const offset = (1 - Math.min(1, Math.max(0, fraction))) * radius * 1.85;
+  ctx.fillStyle = "#e8edf6";
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(center, center, radius, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.beginPath();
+  ctx.arc(center + (waxing ? -offset : offset), center, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.strokeStyle = "rgba(255,255,255,0.18)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(center, center, radius - 1, 0, Math.PI * 2);
+  ctx.stroke();
+
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  return map;
+}
+
+function MoonBody({ moon }: { moon: MoonPlacement }) {
+  const glow = useRef<THREE.Sprite>(null);
+  const texture = useMemo(
+    () => createMoonPhaseTexture(moon.fraction, moon.waxing),
+    [moon.fraction, moon.waxing],
+  );
+  const glowTexture = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    const gradient = ctx.createRadialGradient(128, 128, 8, 128, 128, 128);
+    gradient.addColorStop(0, "rgba(232, 240, 255, 0.95)");
+    gradient.addColorStop(0.25, "rgba(196, 210, 232, 0.45)");
+    gradient.addColorStop(1, "rgba(160, 180, 210, 0)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 256, 256);
+    const map = new THREE.CanvasTexture(canvas);
+    map.colorSpace = THREE.SRGBColorSpace;
+    return map;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      texture?.dispose();
+      glowTexture?.dispose();
+    };
+  }, [texture, glowTexture]);
+
+  useFrame(({ clock }) => {
+    if (!glow.current) return;
+    const pulse = 1 + Math.sin(clock.elapsedTime * 1.1) * 0.03;
+    glow.current.scale.setScalar((moon.aboveHorizon ? 1.15 : 0.85) * pulse);
+  });
+
+  const radius = moon.aboveHorizon ? 0.095 : 0.07;
+
+  return (
+    <group position={[moon.position.x, moon.position.y, moon.position.z]}>
+      <mesh renderOrder={moon.aboveHorizon ? 6 : 1}>
+        <sphereGeometry args={[radius, 32, 32]} />
+        <meshBasicMaterial
+          map={texture ?? undefined}
+          color="#ffffff"
+          toneMapped={false}
+        />
+      </mesh>
+      {glowTexture && (
+        <sprite
+          ref={glow}
+          scale={[1.25, 1.25, 1]}
+          renderOrder={moon.aboveHorizon ? 6 : 1}
+        >
+          <spriteMaterial
+            map={glowTexture}
+            transparent
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+            opacity={moon.aboveHorizon ? 0.55 * moon.fraction + 0.15 : 0.2}
+            toneMapped={false}
+          />
+        </sprite>
+      )}
+    </group>
   );
 }
