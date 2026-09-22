@@ -9,11 +9,6 @@ import { SceneHud } from "@/components/scene-hud";
 import { TimelineSheet } from "@/components/timeline-sheet";
 import { ViewSwitcher, type StudioView } from "@/components/view-switcher";
 import { useDavinciUnlock } from "@/hooks/use-davinci-unlock";
-import {
-  requestDeviceOrientationPermission,
-  useDeviceOrientation,
-  useIsDeviceOrientationSupported,
-} from "@/hooks/use-device-orientation";
 import { useInspectorLayout, useLayout } from "@/hooks/use-layout";
 import { STUDIO_CHROME_TOP_CLASS } from "@/lib/layout-insets";
 import type { ParsedView } from "@/lib/view-query";
@@ -128,34 +123,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   const [view, setView] = useState<StudioView>("default");
   const [fullscreen, setFullscreen] = useState(false);
   const [davinciMounted, setDavinciMounted] = useState(false);
-  const [followHeading, setFollowHeading] = useState(false);
   const { davinciUnlocked } = useDavinciUnlock();
-
-  const { state: orientationState, markDenied } = useDeviceOrientation(followHeading);
-  const orientationSupported = useIsDeviceOrientationSupported();
-  const deviceHeading =
-    orientationState.status === "active" ? orientationState.heading : null;
-  const orientationHint =
-    orientationState.status === "denied"
-      ? "Permission denied"
-      : !orientationSupported
-        ? "Compass unavailable on this device"
-        : undefined;
-
-  const handleFollowHeading = async (value: boolean) => {
-    if (!value) {
-      setFollowHeading(false);
-      return;
-    }
-    const permission = await requestDeviceOrientationPermission();
-    if (permission === "granted") {
-      setFollowHeading(true);
-      return;
-    }
-    if (permission === "denied") {
-      markDenied();
-    }
-  };
 
   const {
     breakpoint,
@@ -457,9 +425,6 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     dayCount: daysInYear(year),
     showSun,
     showMoon,
-    followHeading,
-    orientationSupported,
-    orientationHint,
     samples,
     locating,
     geoError,
@@ -498,11 +463,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     onPlaying: setPlaying,
     onShowSun: setShowSun,
     onShowMoon: setShowMoon,
-    onFollowHeading: handleFollowHeading,
-    onResetView: () => {
-      setFollowHeading(false);
-      setResetSignal((value) => value + 1);
-    },
+    onResetView: () => setResetSignal((value) => value + 1),
     tone: parchment ? ("parchment" as const) : ("night" as const),
     onResetPlace: () => {
       applyPreset(ORLANDO.lat, ORLANDO.lng);
@@ -517,7 +478,6 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
       setGeoError(null);
       setShowSun(true);
       setShowMoon(true);
-      setFollowHeading(false);
     },
   };
 
@@ -544,8 +504,6 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
           moonArc={moonModel.arc}
           showSun={showSun}
           showMoon={showMoon}
-          followHeading={followHeading}
-          deviceHeading={deviceHeading}
           resetSignal={resetSignal}
           layoutInsets={sceneInsets}
           active={view === "default"}
@@ -568,8 +526,6 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
             moonArc={moonModel.arc}
             showSun={showSun}
             showMoon={showMoon}
-            followHeading={followHeading}
-            deviceHeading={deviceHeading}
             resetSignal={resetSignal}
             layoutInsets={sceneInsets}
           />
@@ -597,19 +553,13 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
           desktopChrome={showStudioChrome && showDesktopRail}
           layoutInsets={insets}
           tone={parchment ? "parchment" : "night"}
-          followHeading={followHeading}
-          deviceHeading={deviceHeading}
           onMinutes={(value) => {
             applyTimelineOffset(
               solarStateToOffset(timelineWindow.anchorMs, year, dayIndex, value, longitude),
             );
           }}
           onPlaying={setPlaying}
-          onResetView={() => {
-            setFollowHeading(false);
-            setResetSignal((value) => value + 1);
-          }}
-          onFollowHeading={handleFollowHeading}
+          onResetView={() => setResetSignal((value) => value + 1)}
           onToggleInspector={toggleInspector}
         />
 

@@ -28,9 +28,6 @@ interface InspectorPanelProps {
   dayCount: number;
   showSun: boolean;
   showMoon: boolean;
-  followHeading: boolean;
-  orientationSupported: boolean;
-  orientationHint?: string;
   samples: AltitudeSample[];
   locating: boolean;
   geoError: string | null;
@@ -44,7 +41,6 @@ interface InspectorPanelProps {
   onPlaying: (value: boolean) => void;
   onShowSun: (value: boolean) => void;
   onShowMoon: (value: boolean) => void;
-  onFollowHeading: (value: boolean) => void;
   onResetView: () => void;
   onResetPlace: () => void;
   tone?: ChromeTone;
@@ -71,9 +67,6 @@ export function InspectorPanel(props: InspectorPanelProps) {
     dayCount: props.dayCount,
     showSun: props.showSun,
     showMoon: props.showMoon,
-    followHeading: props.followHeading,
-    orientationSupported: props.orientationSupported,
-    orientationHint: props.orientationHint,
     samples: props.samples,
     locating: props.locating,
     geoError: props.geoError,
@@ -87,7 +80,6 @@ export function InspectorPanel(props: InspectorPanelProps) {
     onPlaying: props.onPlaying,
     onShowSun: props.onShowSun,
     onShowMoon: props.onShowMoon,
-    onFollowHeading: props.onFollowHeading,
     onResetView: props.onResetView,
     onResetPlace: props.onResetPlace,
     compactHeader: true as const,

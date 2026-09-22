@@ -1,7 +1,7 @@
 "use client";
 
 import { Html, Line, OrbitControls } from "@react-three/drei";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import {
   type ComponentRef,
   type RefObject,
@@ -36,8 +36,6 @@ const INK = "#3a2412";
 const PAPER = "#dfcdad";
 const LOOK_TARGET = new THREE.Vector3(0, 0.75, 0);
 const HOME_DIRECTION = new THREE.Vector3(5.15, 2.8, 6.35).normalize();
-const DEG = Math.PI / 180;
-
 const APPLIANCE_POINTS = (() => {
   const points: THREE.Vector3[] = [];
   for (let i = 0; i < 36; i++) {
@@ -75,8 +73,6 @@ export interface DavinciSceneProps {
   moonArc: SkyPath;
   showSun: boolean;
   showMoon: boolean;
-  followHeading: boolean;
-  deviceHeading: number | null;
   resetSignal: number;
   layoutInsets: LayoutInsets;
 }
@@ -90,8 +86,6 @@ export function DavinciScene({
   moonArc,
   showSun,
   showMoon,
-  followHeading,
-  deviceHeading,
   resetSignal,
   layoutInsets,
 }: DavinciSceneProps) {
@@ -122,8 +116,6 @@ export function DavinciScene({
         moonArc={moonArc}
         showSun={showSun}
         showMoon={showMoon}
-        followHeading={followHeading}
-        deviceHeading={deviceHeading}
         resetSignal={resetSignal}
         layoutInsets={layoutInsets}
         reducedMotion={reducedMotion}
@@ -140,41 +132,20 @@ function InkInstrument({
   moonArc,
   showSun,
   showMoon,
-  followHeading,
-  deviceHeading,
   resetSignal,
   layoutInsets,
   reducedMotion,
 }: Omit<DavinciSceneProps, "active"> & { reducedMotion: boolean }) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
-  const headingGroup = useRef<THREE.Group>(null);
   const sunLight = useMemo(() => rakeFromBearing(sun.position), [sun.position]);
   const moonLight = useMemo(
     () => lightFromSun(moon.position, sun.position),
     [moon.position, sun.position],
   );
 
-  useEffect(() => {
-    if (!followHeading) return;
-    const orbit = controls.current;
-    if (!orbit) return;
-    orbit.setAzimuthalAngle(0);
-    orbit.update();
-  }, [followHeading]);
-
-  useFrame(() => {
-    const group = headingGroup.current;
-    if (!group) return;
-    if (followHeading && deviceHeading !== null) {
-      group.rotation.y = -deviceHeading * DEG;
-      return;
-    }
-    group.rotation.y = 0;
-  });
-
   return (
     <>
-      <group ref={headingGroup}>
+      <group>
         <InkCompass />
         {showSun && <InkHorizon horizon={horizon} />}
         {showSun &&
@@ -200,7 +171,7 @@ function InkInstrument({
         enableDamping={!reducedMotion}
         dampingFactor={0.08}
         enablePan
-        enableRotate={!followHeading}
+        enableRotate
         minDistance={3.4}
         maxDistance={48}
         minPolarAngle={0.12}

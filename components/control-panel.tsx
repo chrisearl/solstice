@@ -52,9 +52,6 @@ interface ControlPanelProps {
   dayCount: number;
   showSun: boolean;
   showMoon: boolean;
-  followHeading: boolean;
-  orientationSupported: boolean;
-  orientationHint?: string;
   samples: AltitudeSample[];
   locating: boolean;
   geoError: string | null;
@@ -70,7 +67,6 @@ interface ControlPanelProps {
   onPlaying: (value: boolean) => void;
   onShowSun: (value: boolean) => void;
   onShowMoon: (value: boolean) => void;
-  onFollowHeading: (value: boolean) => void;
   onResetView: () => void;
   onResetPlace: () => void;
 }
@@ -225,21 +221,6 @@ export function ControlPanel(props: ControlPanelProps) {
             onClick={() => props.onShowMoon(!props.showMoon)}
           />
         </div>
-      </div>
-
-      <div className="space-y-2 border-t border-white/10 pt-3">
-        <Label>View</Label>
-        <BodyToggle
-          icon={<Compass />}
-          label="Follow heading"
-          active={props.followHeading}
-          disabled={!props.orientationSupported}
-          fullWidth
-          onClick={() => props.onFollowHeading(!props.followHeading)}
-        />
-        {props.orientationHint && (
-          <p className="text-[10px] leading-snug text-white/45">{props.orientationHint}</p>
-        )}
       </div>
 
       {props.showSun && (

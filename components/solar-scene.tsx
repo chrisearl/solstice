@@ -11,7 +11,6 @@ import {
   useMemo,
   useRef,
 } from "react";
-import type { Group } from "three";
 import * as THREE from "three";
 import { createCompassTexture } from "@/lib/compass-texture";
 import type { LayoutInsets } from "@/lib/layout-insets";
@@ -37,14 +36,10 @@ interface SolarSceneProps {
   moonArc: SkyPath;
   showSun: boolean;
   showMoon: boolean;
-  followHeading: boolean;
-  deviceHeading: number | null;
   resetSignal: number;
   layoutInsets: LayoutInsets;
   active?: boolean;
 }
-
-const DEG = Math.PI / 180;
 
 export default function SolarScene({
   arcs,
@@ -54,8 +49,6 @@ export default function SolarScene({
   moonArc,
   showSun,
   showMoon,
-  followHeading,
-  deviceHeading,
   resetSignal,
   layoutInsets,
   active = true,
@@ -79,8 +72,6 @@ export default function SolarScene({
           moonArc={moonArc}
           showSun={showSun}
           showMoon={showMoon}
-          followHeading={followHeading}
-          deviceHeading={deviceHeading}
           resetSignal={resetSignal}
           layoutInsets={layoutInsets}
         />
@@ -97,36 +88,15 @@ function SceneContent({
   moonArc,
   showSun,
   showMoon,
-  followHeading,
-  deviceHeading,
   resetSignal,
   layoutInsets,
 }: SolarSceneProps) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
-  const headingGroup = useRef<Group>(null);
-
-  useEffect(() => {
-    if (!followHeading) return;
-    const orbit = controls.current;
-    if (!orbit) return;
-    orbit.setAzimuthalAngle(0);
-    orbit.update();
-  }, [followHeading]);
-
-  useFrame(() => {
-    const group = headingGroup.current;
-    if (!group) return;
-    if (followHeading && deviceHeading !== null) {
-      group.rotation.y = -deviceHeading * DEG;
-      return;
-    }
-    group.rotation.y = 0;
-  });
 
   return (
     <>
       <color attach="background" args={["#07080d"]} />
-      <group ref={headingGroup}>
+      <group>
         <SkyDome />
         <Stars
           radius={26}
@@ -177,7 +147,7 @@ function SceneContent({
         enableDamping
         dampingFactor={0.08}
         enablePan
-        enableRotate={!followHeading}
+        enableRotate
         minDistance={3.4}
         maxDistance={48}
         minPolarAngle={0.12}
