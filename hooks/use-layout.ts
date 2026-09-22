@@ -11,7 +11,11 @@ import {
   type LayoutInsets,
 } from "@/lib/layout-insets";
 
-export function useLayout(inspectorState: InspectorState, inspectorPinned: boolean) {
+export function useLayout(
+  inspectorState: InspectorState,
+  inspectorPinned: boolean,
+  readingsOpen = false,
+) {
   const [size, setSize] = useState({ width: 1280, height: 800 });
 
   useEffect(() => {
@@ -24,7 +28,7 @@ export function useLayout(inspectorState: InspectorState, inspectorPinned: boole
   }, []);
 
   const breakpoint = getBreakpoint(size.width);
-  const config: LayoutConfig = { breakpoint, inspectorState, inspectorPinned };
+  const config: LayoutConfig = { breakpoint, inspectorState, inspectorPinned, readingsOpen };
   const insets = computeLayoutInsets(size.width, size.height, config);
 
   return { breakpoint, insets, width: size.width, height: size.height };

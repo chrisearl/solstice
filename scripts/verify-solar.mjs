@@ -16,6 +16,7 @@ import {
   placeMoon,
   placeSun,
   project,
+  seekMinute,
   seasonalDates,
   shadowLengthMeters,
 } from "../lib/solar.ts";
@@ -48,6 +49,25 @@ test("Orlando solstice noon altitudes and south azimuth", () => {
   assert.ok(Math.abs(summerPos.azimuth - 180) < 8, String(summerPos.azimuth));
   assert.ok(Math.abs(winterPos.azimuth - 180) < 8, String(winterPos.azimuth));
   assert.equal(formatMeanTime(summer.solarNoon, ORLANDO.lng).includes("12:"), true);
+});
+
+test("seek lands on the displayed mean-solar clock time", () => {
+  const model = buildSolarModel({
+    year: 2026,
+    dayIndex: 264,
+    latitude: ORLANDO.lat,
+    longitude: ORLANDO.lng,
+  });
+  for (const key of ["sunrise", "solarNoon", "sunset"]) {
+    const minute = seekMinute(model.times[key], model.date, ORLANDO.lng);
+    assert.ok(minute !== null && minute >= 0 && minute < 1440);
+    const hours = Math.floor(minute / 60);
+    const mins = Math.floor(minute % 60);
+    const suffix = hours >= 12 ? "PM" : "AM";
+    const hours12 = hours % 12 || 12;
+    const clock = `${hours12}:${String(mins).padStart(2, "0")} ${suffix}`;
+    assert.equal(clock, formatMeanTime(model.times[key], ORLANDO.lng));
+  }
 });
 
 test("selected day builds a sunlit arc and a shadow at 3pm in Orlando", () => {

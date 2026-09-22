@@ -67,6 +67,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   const [fullscreen, setFullscreen] = useState(false);
   const [davinciMounted, setDavinciMounted] = useState(false);
   const [followHeading, setFollowHeading] = useState(false);
+  const [readingsOpen, setReadingsOpen] = useState(false);
 
   const { state: orientationState, markDenied } = useDeviceOrientation(followHeading);
   const orientationSupported = isDeviceOrientationSupported();
@@ -104,7 +105,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     closeInspector,
   } = useInspectorLayout();
 
-  const { insets } = useLayout(inspectorState, inspectorPinned);
+  const { insets } = useLayout(inspectorState, inspectorPinned, readingsOpen);
   const sceneInsets = useMemo(
     () =>
       fullscreen
@@ -501,6 +502,8 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
           }}
           onFollowHeading={handleFollowHeading}
           onToggleInspector={toggleInspector}
+          readingsOpen={readingsOpen}
+          onReadings={setReadingsOpen}
         />
 
       {showStudioChrome && showPinnedInspector && (

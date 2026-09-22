@@ -1094,7 +1094,12 @@ export function altitudeSamples(
   return samples;
 }
 
-/** Mean-solar minutes after midnight of `day`. Outside [0, 1439] the event belongs to another date. */
+/**
+ * Mean-solar minute of `day` for an event instant.
+ * SunCalc often returns the occurrence nearest UTC midnight, which can fall on
+ * the previous UTC date for western longitudes. The clock still wants that
+ * time of day, so the offset is wrapped into the model's date.
+ */
 export function seekMinute(
   instant: Date | null,
   day: Date,
@@ -1108,9 +1113,9 @@ export function seekMinute(
     0,
     longitude,
   );
-  const minutes = (instant.getTime() - midnight.getTime()) / 60_000;
-  if (minutes < 0 || minutes > 1439) return null;
-  return minutes;
+  const raw = (instant.getTime() - midnight.getTime()) / 60_000;
+  if (!Number.isFinite(raw)) return null;
+  return ((raw % 1440) + 1440) % 1440;
 }
 
 export function shadowLengthMeters(altitudeDeg: number, heightMeters: number): number | null {

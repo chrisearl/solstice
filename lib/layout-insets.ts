@@ -13,6 +13,8 @@ export interface LayoutConfig {
   breakpoint: Breakpoint;
   inspectorState: InspectorState;
   inspectorPinned: boolean;
+  /** Mobile portrait readings strip. Ignored while the inspector covers the frame. */
+  readingsOpen?: boolean;
 }
 
 const MD = 768;
@@ -38,11 +40,17 @@ const STAT_RAIL_WIDTH = {
 } as const;
 
 const HUD_TOP = {
-  mobile: 88,
   tablet: 96,
   desktop: 56,
   large: 56,
 } as const;
+
+/** iPhone 16 Pro portrait: dynamic island plus one viewfinder bar. */
+const MOBILE_FINDER_TOP = 120;
+/** Finder bar plus the extended readings strip. */
+const MOBILE_EXTENDED_TOP = 300;
+/** Clears the bottom view switcher and the home indicator. */
+const MOBILE_DOCK_BOTTOM = 132;
 
 const INSPECTOR_PEEK = 72;
 const INSPECTOR_OPEN_RATIO = 0.52;
@@ -55,13 +63,14 @@ export function computeLayoutInsets(
   const { breakpoint, inspectorState, inspectorPinned } = config;
 
   if (breakpoint === "mobile") {
-    const top = HUD_TOP.mobile;
-    let bottom = 16;
-    if (inspectorState === "peek") bottom = INSPECTOR_PEEK;
+    const extended = Boolean(config.readingsOpen) && inspectorState === "closed";
+    const top = extended ? MOBILE_EXTENDED_TOP : MOBILE_FINDER_TOP;
+    let bottom = MOBILE_DOCK_BOTTOM;
+    if (inspectorState === "peek") bottom = INSPECTOR_PEEK + 108;
     if (inspectorState === "open") {
-      bottom = Math.min(height * INSPECTOR_OPEN_RATIO, 420);
+      bottom = Math.min(height * INSPECTOR_OPEN_RATIO, 420) + 64;
     }
-    return { left: 12, right: 12, top, bottom };
+    return { left: 16, right: 16, top, bottom };
   }
 
   if (breakpoint === "tablet") {
