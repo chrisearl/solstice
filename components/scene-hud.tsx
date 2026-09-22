@@ -9,19 +9,25 @@ import {
   Play,
   RotateCcw,
   Settings2,
-  Sparkles,
   SunMedium,
 } from "lucide-react";
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { formatCivilTime, timezoneAt } from "@/lib/civil-time";
+import { PHASE_COLORS, phaseInk } from "@/lib/light";
 import {
+  formatAzimuth,
   formatDegrees,
   formatLongDate,
   formatMeanTime,
   formatMinutes,
+  instantAtMinutes,
   locationLabel,
+  seekMinute,
   type MoonModel,
   type MoonPlacement,
   type SolarModel,
+  type SunLightingPhaseInfo,
   type SunPlacement,
 } from "@/lib/solar";
 import type { Breakpoint } from "@/lib/layout-insets";
@@ -39,6 +45,7 @@ interface SceneHudProps {
   showSun: boolean;
   showMoon: boolean;
   inspectorOpen: boolean;
+  onMinutes: (value: number) => void;
   onPlaying: (value: boolean) => void;
   onResetView: () => void;
   onToggleInspector: () => void;
@@ -48,6 +55,23 @@ export function SceneHud(props: SceneHudProps) {
   const location = locationLabel(props.latitude, props.longitude);
   const timeLabel = formatMinutes(props.minutes);
   const dateLabel = formatLongDate(props.model.date);
+  const timeZone = useMemo(
+    () => timezoneAt(props.latitude, props.longitude),
+    [props.latitude, props.longitude],
+  );
+  const civilTime = useMemo(() => {
+    if (!timeZone) return null;
+    const instant = instantAtMinutes(
+      props.model.date.getUTCFullYear(),
+      props.model.date.getUTCMonth(),
+      props.model.date.getUTCDate(),
+      props.minutes,
+      props.longitude,
+    );
+    return formatCivilTime(instant, timeZone);
+  }, [timeZone, props.model.date, props.minutes, props.longitude]);
+  const seek = (instant: Date | null) => seekMinute(instant, props.model.date, props.longitude);
+  const wide = props.breakpoint === "tablet" || props.breakpoint === "desktop" || props.breakpoint === "large";
 
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 px-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] md:px-4 lg:px-5">
@@ -55,7 +79,8 @@ export function SceneHud(props: SceneHudProps) {
         <div className="pointer-events-auto flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <LocationChip label={location} />
-            <TimeChip time={timeLabel} date={dateLabel} playing={props.playing} />
+            <TimeChip time={timeLabel} date={dateLabel} civil={civilTime} playing={props.playing} />
+            {props.showSun && <PhaseChip phase={props.sun.lightingPhase} />}
           </div>
 
           <div
@@ -70,7 +95,7 @@ export function SceneHud(props: SceneHudProps) {
                 <MetricPill
                   icon={<Compass className="size-3.5" />}
                   label="Sun az"
-                  value={formatDegrees(props.sun.azimuth)}
+                  value={formatAzimuth(props.sun.azimuth)}
                   compact={props.breakpoint === "mobile"}
                 />
                 <MetricPill
@@ -80,23 +105,25 @@ export function SceneHud(props: SceneHudProps) {
                   tone={props.sun.aboveHorizon ? "day" : "night"}
                   compact={props.breakpoint === "mobile"}
                 />
-                <MetricPill
-                  icon={<Sparkles className="size-3.5" />}
-                  label="Lighting"
-                  value={props.sun.lightingPhase.label}
-                  compact={props.breakpoint === "mobile"}
-                />
-                {(props.breakpoint === "tablet" || props.breakpoint === "desktop" || props.breakpoint === "large") && (
+                {wide && (
                   <>
                     <MetricPill
                       label="Sunrise"
                       value={riseLabel(props.model, props.longitude, "sunrise")}
                       compact
+                      onClick={clickSeek(seek(props.model.times.sunrise), props.onMinutes)}
+                    />
+                    <MetricPill
+                      label="Solar noon"
+                      value={formatMeanTime(props.model.times.solarNoon, props.longitude)}
+                      compact
+                      onClick={clickSeek(seek(props.model.times.solarNoon), props.onMinutes)}
                     />
                     <MetricPill
                       label="Sunset"
                       value={riseLabel(props.model, props.longitude, "sunset")}
                       compact
+                      onClick={clickSeek(seek(props.model.times.sunset), props.onMinutes)}
                     />
                   </>
                 )}
@@ -107,7 +134,7 @@ export function SceneHud(props: SceneHudProps) {
                 <MetricPill
                   icon={<Moon className="size-3.5" />}
                   label="Moon az"
-                  value={formatDegrees(props.moon.azimuth)}
+                  value={formatAzimuth(props.moon.azimuth)}
                   compact={props.breakpoint === "mobile"}
                 />
                 <MetricPill
@@ -166,10 +193,12 @@ function LocationChip({ label }: { label: string }) {
 function TimeChip({
   time,
   date,
+  civil,
   playing,
 }: {
   time: string;
   date: string;
+  civil: string | null;
   playing: boolean;
 }) {
   return (
@@ -178,6 +207,7 @@ function TimeChip({
       <div className="min-w-0">
         <p className="font-mono text-sm text-[#f7f3ea] tabular-nums">{time}</p>
         <p className="truncate text-[10px] text-white/45">{date}</p>
+        {civil && <p className="truncate font-mono text-[10px] text-white/60 tabular-nums">{civil}</p>}
       </div>
       {playing && (
         <span className="relative flex size-2 shrink-0">
@@ -189,18 +219,36 @@ function TimeChip({
   );
 }
 
+function PhaseChip({ phase }: { phase: SunLightingPhaseInfo }) {
+  return (
+    <div
+      className="inline-flex items-center rounded-full border border-white/15 px-3 py-1.5 backdrop-blur-md"
+      style={{ background: PHASE_COLORS[phase.id], color: phaseInk(phase.id) }}
+    >
+      <span className="text-[11px] tracking-[0.12em] uppercase">{phase.label}</span>
+    </div>
+  );
+}
+
+function clickSeek(minute: number | null, onMinutes: (value: number) => void) {
+  if (minute === null) return undefined;
+  return () => onMinutes(minute);
+}
+
 function MetricPill({
   icon,
   label,
   value,
   tone = "neutral",
   compact = false,
+  onClick,
 }: {
   icon?: React.ReactNode;
   label: string;
   value: string;
   tone?: "neutral" | "day" | "night";
   compact?: boolean;
+  onClick?: () => void;
 }) {
   const toneClass =
     tone === "day"
@@ -208,21 +256,23 @@ function MetricPill({
       : tone === "night"
         ? "text-white/55"
         : "text-[#f7f3ea]";
-
-  return (
-    <div
-      className={
-        compact
-          ? "rounded-xl border border-white/10 bg-black/40 px-2.5 py-1.5 backdrop-blur-md"
-          : "rounded-xl border border-white/10 bg-black/40 px-3 py-2 backdrop-blur-md"
-      }
-    >
+  const className = compact
+    ? "rounded-xl border border-white/10 bg-black/40 px-2.5 py-1.5 text-left backdrop-blur-md"
+    : "rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-left backdrop-blur-md";
+  const body = (
+    <>
       <div className="flex items-center gap-1 text-[9px] tracking-[0.14em] text-white/45 uppercase">
         {icon && <span className="text-[#f0b429]">{icon}</span>}
         {label}
       </div>
       <p className={`font-mono text-sm tabular-nums ${toneClass}`}>{value}</p>
-    </div>
+    </>
+  );
+  if (!onClick) return <div className={className}>{body}</div>;
+  return (
+    <button type="button" onClick={onClick} aria-label={`Go to ${label.toLowerCase()}, ${value}`} className={`${className} hover:bg-white/10`}>
+      {body}
+    </button>
   );
 }
 
