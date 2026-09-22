@@ -1,26 +1,20 @@
 "use client";
 
 import {
-  Clock,
   Compass,
   LocateFixed,
   MapPin,
   Moon,
-  Pause,
-  Play,
   RotateCcw,
   Sparkles,
   SunMedium,
   Sunrise,
   Sunset,
 } from "lucide-react";
-import { useMemo } from "react";
-import { AltitudeSparkline } from "@/components/altitude-sparkline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import { formatCivilTime, timezoneAt } from "@/lib/civil-time";
-import { phaseLabelColor, phaseTrackStyle, type ChromeTone } from "@/lib/light";
+import type { ChromeTone } from "@/lib/light";
 import {
   PRESETS,
   coordinateStatus,
@@ -29,15 +23,11 @@ import {
   formatDuration,
   formatLongDate,
   formatMeanTime,
-  formatMinutes,
   formatShadow,
-  instantAtMinutes,
   isoFromDate,
   locationLabel,
-  minutesToTimeValue,
   seekMinute,
   shadowLengthMeters,
-  timeValueToMinutes,
   MOON_ARC_COLOR,
   type AltitudeSample,
   type MoonModel,
@@ -93,23 +83,7 @@ interface ControlPanelProps {
 export function ControlPanel(props: ControlPanelProps) {
   const latState = coordinateStatus(props.latText, -90, 90);
   const lngState = coordinateStatus(props.lngText, -180, 180);
-  const timeZone = useMemo(
-    () => timezoneAt(props.latitude, props.longitude),
-    [props.latitude, props.longitude],
-  );
-  const civilTime = useMemo(() => {
-    if (!timeZone) return null;
-    const instant = instantAtMinutes(
-      props.model.date.getUTCFullYear(),
-      props.model.date.getUTCMonth(),
-      props.model.date.getUTCDate(),
-      props.minutes,
-      props.longitude,
-    );
-    return formatCivilTime(instant, timeZone);
-  }, [timeZone, props.model.date, props.minutes, props.longitude]);
   const shadowMeters = shadowLengthMeters(props.sun.altitude, props.objectHeight);
-  const tone = props.tone ?? "night";
 
   return (
     <section className="flex flex-col gap-4">
@@ -238,74 +212,6 @@ export function ControlPanel(props: ControlPanelProps) {
           <Jump label="Sept" onClick={() => props.onJump("september")} />
           <Jump label="Winter" onClick={() => props.onJump("winter")} />
         </div>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex items-end justify-between gap-3">
-          <Label icon={<Clock />}>Time of day</Label>
-          <div className="text-right">
-            <p className="font-mono text-xs text-[#f0b429]">{formatMinutes(props.minutes)}</p>
-            <p className="text-[10px] tracking-wide text-white/40 uppercase">Mean solar</p>
-            {civilTime && (
-              <>
-                <p className="font-mono text-xs text-white/80">{civilTime}</p>
-                <p className="text-[10px] tracking-wide text-white/40 uppercase">Civil</p>
-              </>
-            )}
-          </div>
-        </div>
-        {props.showSun && (
-          <p className="text-xs" style={{ color: phaseLabelColor(props.sun.lightingPhase.id, tone) }}>
-            {props.sun.lightingPhase.label}
-          </p>
-        )}
-        <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <Slider
-              min={0}
-              max={1439}
-              step={0.5}
-              value={[props.minutes]}
-              onValueChange={([value]) => props.onMinutes(value)}
-              aria-label="Time of day"
-              hideRange
-              trackStyle={phaseTrackStyle(props.samples, props.model.times, props.longitude, tone)}
-            />
-            <AltitudeSparkline
-              samples={props.samples}
-              minutes={props.minutes}
-              showSun={props.showSun}
-              showMoon={props.showMoon}
-              tone={tone}
-            />
-            <div className="flex justify-between px-0.5 font-mono text-[10px] tracking-wide text-white/35">
-              <span>12 AM</span>
-              <span>6 AM</span>
-              <span>12 PM</span>
-              <span>6 PM</span>
-            </div>
-          </div>
-          <Button
-            type="button"
-            size="icon"
-            className="bg-[#f0b429] text-[#1b1406] hover:bg-[#ffd36a]"
-            aria-pressed={props.playing}
-            aria-label={props.playing ? "Pause the day" : "Play the day"}
-            onClick={() => props.onPlaying(!props.playing)}
-          >
-            {props.playing ? <Pause /> : <Play />}
-          </Button>
-        </div>
-        <Input
-          type="time"
-          value={minutesToTimeValue(props.minutes)}
-          onChange={(event) => {
-            const next = timeValueToMinutes(event.target.value);
-            if (next !== null) props.onMinutes(next);
-          }}
-          className="h-8 border-white/10 bg-white/5 font-mono text-white scheme-dark"
-          aria-label="Clock time"
-        />
       </div>
 
       <div className="space-y-2 border-t border-white/10 pt-3">

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ControlPanel, StatRail } from "@/components/control-panel";
 import { InspectorPanel } from "@/components/inspector-panel";
 import { SceneHud } from "@/components/scene-hud";
+import { TimelineSheet } from "@/components/timeline-sheet";
 import { ViewSwitcher, type StudioView } from "@/components/view-switcher";
 import {
   isDeviceOrientationSupported,
@@ -31,6 +32,16 @@ import {
   seasonalDates,
   type SeasonJump,
 } from "@/lib/solar";
+import {
+  buildTimelineWindow,
+  offsetToSolarState,
+  PLAYBACK_SPEEDS,
+  solarStateToOffset,
+  TIMELINE_DURATION_MINUTES,
+  timelineSamples,
+  type PlaybackSpeed,
+  type TimelineWindow,
+} from "@/lib/timeline";
 
 const SolarScene = dynamic(() => import("@/components/solar-scene"), {
   ssr: false,
@@ -46,13 +57,63 @@ function todayCalendar() {
   return dayIndexFromLocalDate(new Date());
 }
 
+function currentMinutesOfDay() {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+}
+
+function initialTimelineState(initial: ParsedView | undefined, latitude: number, longitude: number) {
+  const window = buildTimelineWindow(new Date(), latitude, longitude);
+  const today = todayCalendar();
+  if (initial?.minutes !== undefined) {
+    const year = initial.year ?? today.year;
+    const dayIndex = initial.dayIndex ?? today.dayIndex;
+    const offset = solarStateToOffset(
+      window.anchorMs,
+      year,
+      dayIndex,
+      initial.minutes,
+      longitude,
+    );
+    if (offset >= 0 && offset <= TIMELINE_DURATION_MINUTES) {
+      return {
+        window,
+        offset,
+        year,
+        dayIndex,
+        minutes: initial.minutes,
+        today,
+      };
+    }
+  }
+  const nowState = offsetToSolarState(window.anchorMs, window.nowOffset, longitude);
+  return {
+    window,
+    offset: window.nowOffset,
+    year: nowState.year,
+    dayIndex: nowState.dayIndex,
+    minutes: nowState.minutes,
+    today,
+  };
+}
+
 export function SolarStudio({ initial }: { initial?: ParsedView }) {
   const stageRef = useRef<HTMLDivElement>(null);
-  const today = todayCalendar();
-  const [year, setYear] = useState(() => initial?.year ?? today.year);
-  const [dayIndex, setDayIndex] = useState(() => initial?.dayIndex ?? today.dayIndex);
-  const [minutes, setMinutes] = useState(initial?.minutes ?? 15 * 60);
+  const bootLatitude = initial?.latitude ?? ORLANDO.lat;
+  const bootLongitude = initial?.longitude ?? ORLANDO.lng;
+  const bootTimeline = initialTimelineState(initial, bootLatitude, bootLongitude);
+  const today = bootTimeline.today ?? todayCalendar();
+  const [timelineWindow] = useState<TimelineWindow>(() => bootTimeline.window);
+  const [timelineOffset, setTimelineOffset] = useState(() => bootTimeline.offset);
+  const [year, setYear] = useState(() => initial?.year ?? bootTimeline.year ?? today.year);
+  const [dayIndex, setDayIndex] = useState(
+    () => initial?.dayIndex ?? bootTimeline.dayIndex ?? today.dayIndex,
+  );
+  const [minutes, setMinutes] = useState(
+    () => initial?.minutes ?? bootTimeline.minutes ?? currentMinutesOfDay(),
+  );
   const [playing, setPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeed>(PLAYBACK_SPEEDS[2]);
   const [latText, setLatText] = useState(String(initial?.latitude ?? ORLANDO.lat));
   const [lngText, setLngText] = useState(String(initial?.longitude ?? ORLANDO.lng));
   const [latitude, setLatitude] = useState(initial?.latitude ?? ORLANDO.lat);
@@ -108,7 +169,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   const sceneInsets = useMemo(
     () =>
       fullscreen
-        ? { left: 32, right: 32, top: 72, bottom: 128 }
+        ? { left: 32, right: 32, top: 72, bottom: 100 }
         : {
             left: insets.left,
             right: insets.right,
@@ -126,6 +187,16 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   const showStudioChrome = !fullscreen;
   const parchment = view === "davinci";
 
+  const applyTimelineOffset = (offset: number, stopPlayback = true) => {
+    const clamped = Math.min(Math.max(offset, 0), TIMELINE_DURATION_MINUTES);
+    if (stopPlayback) setPlaying(false);
+    setTimelineOffset(clamped);
+    const next = offsetToSolarState(timelineWindow.anchorMs, clamped, longitude);
+    setYear(next.year);
+    setDayIndex(next.dayIndex);
+    setMinutes(next.minutes);
+  };
+
   useEffect(() => {
     if (!playing) return;
     let frame = 0;
@@ -133,12 +204,21 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     const tick = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      setMinutes((value) => (value + dt * 48) % 1440);
+      setTimelineOffset((value) => {
+        const next = value + dt * playbackSpeed.minutesPerSecond;
+        const wrapped =
+          next > TIMELINE_DURATION_MINUTES ? next - TIMELINE_DURATION_MINUTES : next;
+        const solar = offsetToSolarState(timelineWindow.anchorMs, wrapped, longitude);
+        setYear(solar.year);
+        setDayIndex(solar.dayIndex);
+        setMinutes(solar.minutes);
+        return wrapped;
+      });
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [playing]);
+  }, [playing, playbackSpeed.minutesPerSecond, timelineWindow.anchorMs, longitude]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -213,6 +293,17 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   const samples = useMemo(
     () => altitudeSamples(model.date, latitude, longitude),
     [model.date, latitude, longitude],
+  );
+
+  const timelineChartSamples = useMemo(
+    () =>
+      timelineSamples(
+        timelineWindow.anchorMs,
+        timelineWindow.durationMinutes,
+        latitude,
+        longitude,
+      ),
+    [timelineWindow.anchorMs, timelineWindow.durationMinutes, latitude, longitude],
   );
 
   const roundedMinute = ((Math.round(minutes) % 1440) + 1440) % 1440;
@@ -369,16 +460,33 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     onLngText: applyLongitude,
     onPreset: applyPreset,
     onLocate: locate,
-    onDayIndex: setDayIndex,
+    onDayIndex: (value: number) => {
+      setPlaying(false);
+      setDayIndex(value);
+      setTimelineOffset(
+        solarStateToOffset(timelineWindow.anchorMs, year, value, minutes, longitude),
+      );
+    },
     onDate: (iso: string) => {
       const next = parseIsoDate(iso);
       if (!next) return;
+      setPlaying(false);
       setYear(next.year);
       setDayIndex(next.dayIndex);
+      setTimelineOffset(
+        solarStateToOffset(
+          timelineWindow.anchorMs,
+          next.year,
+          next.dayIndex,
+          minutes,
+          longitude,
+        ),
+      );
     },
     onMinutes: (value: number) => {
-      setPlaying(false);
-      setMinutes(value);
+      applyTimelineOffset(
+        solarStateToOffset(timelineWindow.anchorMs, year, dayIndex, value, longitude),
+      );
     },
     onObjectHeight: (value: number) => {
       if (!Number.isFinite(value)) return;
@@ -388,8 +496,14 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     onJump: (kind: SeasonJump) => {
       const seasons = seasonalDates(year, latitude, longitude);
       const date = seasons[kind];
-      setYear(date.getUTCFullYear());
-      setDayIndex(dayIndexFromUtcDate(date));
+      const nextYear = date.getUTCFullYear();
+      const nextDayIndex = dayIndexFromUtcDate(date);
+      setPlaying(false);
+      setYear(nextYear);
+      setDayIndex(nextDayIndex);
+      setTimelineOffset(
+        solarStateToOffset(timelineWindow.anchorMs, nextYear, nextDayIndex, minutes, longitude),
+      );
     },
     onShowSun: setShowSun,
     onShowMoon: setShowMoon,
@@ -401,10 +515,12 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     tone: parchment ? ("parchment" as const) : ("night" as const),
     onResetPlace: () => {
       applyPreset(ORLANDO.lat, ORLANDO.lng);
-      const today = dayIndexFromLocalDate(new Date());
-      setYear(today.year);
-      setDayIndex(today.dayIndex);
-      setMinutes(15 * 60);
+      const resetWindow = buildTimelineWindow(new Date(), ORLANDO.lat, ORLANDO.lng);
+      const nowState = offsetToSolarState(resetWindow.anchorMs, resetWindow.nowOffset, ORLANDO.lng);
+      setYear(nowState.year);
+      setDayIndex(nowState.dayIndex);
+      setMinutes(nowState.minutes);
+      setTimelineOffset(resetWindow.nowOffset);
       setObjectHeight(1);
       setPlaying(false);
       setGeoError(null);
@@ -491,8 +607,9 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
           followHeading={followHeading}
           deviceHeading={deviceHeading}
           onMinutes={(value) => {
-            setPlaying(false);
-            setMinutes(value);
+            applyTimelineOffset(
+              solarStateToOffset(timelineWindow.anchorMs, year, dayIndex, value, longitude),
+            );
           }}
           onPlaying={setPlaying}
           onResetView={() => {
@@ -537,8 +654,9 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
             showMoon={showMoon}
             objectHeight={objectHeight}
             onMinutes={(value) => {
-              setPlaying(false);
-              setMinutes(value);
+              applyTimelineOffset(
+                solarStateToOffset(timelineWindow.anchorMs, year, dayIndex, value, longitude),
+              );
             }}
           />
         </div>
@@ -559,11 +677,29 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
         )}
       </div>
 
+      <TimelineSheet
+        window={timelineWindow}
+        offset={timelineOffset}
+        playing={playing}
+        speed={playbackSpeed}
+        samples={timelineChartSamples}
+        sun={sun}
+        showSun={showSun}
+        showMoon={showMoon}
+        latitude={latitude}
+        longitude={longitude}
+        year={year}
+        dayIndex={dayIndex}
+        minutes={minutes}
+        tone={parchment ? "parchment" : "night"}
+        onOffset={applyTimelineOffset}
+        onPlaying={setPlaying}
+        onSpeed={setPlaybackSpeed}
+      />
+
       <ViewSwitcher
         view={view}
         fullscreen={fullscreen}
-        breakpoint={breakpoint}
-        inspectorState={inspectorState}
         onView={selectView}
         onFullscreen={() => setFullscreen((value) => !value)}
       />

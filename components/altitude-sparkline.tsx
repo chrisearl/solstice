@@ -10,18 +10,22 @@ export function AltitudeSparkline({
   showSun,
   showMoon,
   tone = "night",
+  rangeMinutes = 1440,
+  nowOffset,
 }: {
   samples: AltitudeSample[];
   minutes: number;
   showSun: boolean;
   showMoon: boolean;
   tone?: ChromeTone;
+  rangeMinutes?: number;
+  nowOffset?: number;
 }) {
   const parchment = tone === "parchment";
   if (samples.length < 2) return null;
   const width = 100;
   const height = 44;
-  const x = (minute: number) => (minute / 1440) * width;
+  const x = (minute: number) => (minute / rangeMinutes) * width;
   const y = (altitude: number) => {
     const clamped = Math.min(MAX_ALT, Math.max(MIN_ALT, altitude));
     return height - ((clamped - MIN_ALT) / (MAX_ALT - MIN_ALT)) * height;
@@ -33,7 +37,9 @@ export function AltitudeSparkline({
         return `${command}${x(sample.minute).toFixed(2)},${y(sample[key]).toFixed(2)}`;
       })
       .join(" ");
-  const playhead = x(Math.min(Math.max(minutes, 0), 1440));
+  const playhead = x(Math.min(Math.max(minutes, 0), rangeMinutes));
+  const nowMarker =
+    nowOffset === undefined ? null : x(Math.min(Math.max(nowOffset, 0), rangeMinutes));
 
   return (
     <svg
@@ -42,6 +48,18 @@ export function AltitudeSparkline({
       aria-hidden
       className="h-11 w-full"
     >
+      {nowMarker !== null && (
+        <line
+          x1={nowMarker}
+          x2={nowMarker}
+          y1="0"
+          y2={height}
+          stroke={parchment ? "rgba(92,59,30,0.45)" : "rgba(240,180,41,0.55)"}
+          strokeWidth="1"
+          strokeDasharray="2 2"
+          vectorEffect="non-scaling-stroke"
+        />
+      )}
       <line
         x1="0"
         x2={width}

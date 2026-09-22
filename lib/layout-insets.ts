@@ -46,6 +46,7 @@ const HUD_TOP = {
 
 const INSPECTOR_PEEK = 72;
 const INSPECTOR_OPEN_RATIO = 0.52;
+const TIMELINE_PEEK = 76;
 
 export function computeLayoutInsets(
   width: number,
@@ -56,10 +57,10 @@ export function computeLayoutInsets(
 
   if (breakpoint === "mobile") {
     const top = HUD_TOP.mobile;
-    let bottom = 16;
-    if (inspectorState === "peek") bottom = INSPECTOR_PEEK;
+    let bottom = TIMELINE_PEEK + 12;
+    if (inspectorState === "peek") bottom = INSPECTOR_PEEK + TIMELINE_PEEK + 8;
     if (inspectorState === "open") {
-      bottom = Math.min(height * INSPECTOR_OPEN_RATIO, 420);
+      bottom = Math.min(height * INSPECTOR_OPEN_RATIO, 420) + TIMELINE_PEEK + 8;
     }
     return { left: 12, right: 12, top, bottom };
   }
@@ -70,7 +71,7 @@ export function computeLayoutInsets(
       inspectorPinned || inspectorState === "open"
         ? INSPECTOR_WIDTH.tablet + 16
         : 16;
-    return { left, right: 16, top, bottom: 16 };
+    return { left, right: 16, top, bottom: TIMELINE_PEEK + 16 };
   }
 
   const inspectorWidth = INSPECTOR_WIDTH[breakpoint];
@@ -81,7 +82,7 @@ export function computeLayoutInsets(
     left: inspectorPinned ? inspectorWidth + 20 : 20,
     right: statWidth + 24,
     top,
-    bottom: 20,
+    bottom: TIMELINE_PEEK + 20,
   };
 }
 
