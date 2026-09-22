@@ -8,6 +8,7 @@ import {
   Pause,
   Play,
   RotateCcw,
+  Sparkles,
   SunMedium,
   Sunrise,
   Sunset,
@@ -31,6 +32,7 @@ import {
   type MoonModel,
   type MoonPlacement,
   type SolarArc,
+  type SolarDayTimes,
   type SolarModel,
   type SunPlacement,
 } from "@/lib/solar";
@@ -245,6 +247,10 @@ export function ControlPanel(props: ControlPanelProps) {
         </div>
       </div>
 
+      {props.showSun && (
+        <LightingPhases times={props.model.times} longitude={props.longitude} />
+      )}
+
       <Legend
         arcs={props.model.arcs}
         note={props.model.note}
@@ -288,6 +294,12 @@ export function StatRail({
             label="Sun altitude"
             value={formatDegrees(sun.altitude)}
             hint={sun.aboveHorizon ? "Above the horizon" : "Below the horizon"}
+          />
+          <Stat
+            icon={<Sparkles />}
+            label="Lighting"
+            value={sun.lightingPhase.label}
+            hint={sun.lightingPhase.hint}
           />
           <Stat
             icon={<Sunrise />}
@@ -463,6 +475,104 @@ function BodyToggle({
       <span className="[&_svg]:size-3.5">{icon}</span>
       {label}
     </Button>
+  );
+}
+
+function LightingPhases({
+  times,
+  longitude,
+}: {
+  times: SolarDayTimes;
+  longitude: number;
+}) {
+  if (times.alwaysDown) {
+    return (
+      <div className="space-y-2 border-t border-white/10 pt-3">
+        <Label icon={<Sparkles />}>Lighting phases</Label>
+        <p className="text-xs leading-relaxed text-white/50">
+          Polar night — twilight boundaries are not defined for this date.
+        </p>
+      </div>
+    );
+  }
+
+  if (times.alwaysUp) {
+    return (
+      <div className="space-y-2 border-t border-white/10 pt-3">
+        <Label icon={<Sparkles />}>Lighting phases</Label>
+        <p className="text-xs leading-relaxed text-white/50">
+          Midnight sun — the sun stays above the horizon all day.
+        </p>
+      </div>
+    );
+  }
+
+  const rows: { label: string; morning?: Date | null; evening?: Date | null }[] = [
+    {
+      label: "Golden hour",
+      morning: times.sunrise,
+      evening: times.goldenHour,
+    },
+    {
+      label: "Civil twilight",
+      morning: times.dawn,
+      evening: times.dusk,
+    },
+    {
+      label: "Blue hour",
+      morning: times.dawn,
+      evening: times.blueHour,
+    },
+    {
+      label: "Nautical twilight",
+      morning: times.nauticalDawn,
+      evening: times.nauticalDusk,
+    },
+    {
+      label: "Astronomical twilight",
+      morning: times.nightEnd,
+      evening: times.night,
+    },
+  ];
+
+  return (
+    <div className="space-y-2 border-t border-white/10 pt-3">
+      <Label icon={<Sparkles />}>Lighting phases</Label>
+      <ul className="space-y-1.5">
+        {rows.map((row) => (
+          <li
+            key={row.label}
+            className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 text-xs"
+          >
+            <span className="text-white/75">{row.label}</span>
+            <PhaseTime label="AM" time={row.morning} longitude={longitude} />
+            <PhaseTime label="PM" time={row.evening} longitude={longitude} />
+          </li>
+        ))}
+      </ul>
+      <p className="text-[11px] leading-relaxed text-white/40">
+        AM and PM list when each phase begins in mean solar time. Golden hour ends at{" "}
+        {formatMeanTime(times.goldenHourEnd, longitude)} and sunset at{" "}
+        {formatMeanTime(times.sunset, longitude)}.
+      </p>
+    </div>
+  );
+}
+
+function PhaseTime({
+  label,
+  time,
+  longitude,
+}: {
+  label: string;
+  time: Date | null | undefined;
+  longitude: number;
+}) {
+  return (
+    <span className="font-mono text-[11px] text-white/45 tabular-nums">
+      <span className="text-white/25">{label}</span>{" "}
+      {time ? formatMeanTime(time, longitude) : "—"}
+    </span>
   );
 }
 

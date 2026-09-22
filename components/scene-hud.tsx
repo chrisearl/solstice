@@ -1,6 +1,17 @@
 "use client";
 
-import { Clock, Compass, MapPin, Moon, Pause, Play, RotateCcw, Settings2, SunMedium } from "lucide-react";
+import {
+  Clock,
+  Compass,
+  MapPin,
+  Moon,
+  Pause,
+  Play,
+  RotateCcw,
+  Settings2,
+  Sparkles,
+  SunMedium,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   formatDegrees,
@@ -67,6 +78,12 @@ export function SceneHud(props: SceneHudProps) {
                   label="Sun alt"
                   value={formatDegrees(props.sun.altitude)}
                   tone={props.sun.aboveHorizon ? "day" : "night"}
+                  compact={props.breakpoint === "mobile"}
+                />
+                <MetricPill
+                  icon={<Sparkles className="size-3.5" />}
+                  label="Lighting"
+                  value={props.sun.lightingPhase.label}
                   compact={props.breakpoint === "mobile"}
                 />
                 {(props.breakpoint === "tablet" || props.breakpoint === "desktop" || props.breakpoint === "large") && (

@@ -94,7 +94,7 @@ export function SolarStudio() {
   );
 
   const sun = useMemo(
-    () => placeSun(model.date, minutes, latitude, longitude),
+    () => placeSun(model.date, minutes, latitude, longitude, model.times),
     [model, minutes, latitude, longitude],
   );
 
@@ -261,9 +261,9 @@ export function SolarStudio() {
 
       <p className="sr-only">
         Three-dimensional chart of the sky for {locationLabel(latitude, longitude)}. Sun azimuth{" "}
-        {sun.azimuth.toFixed(1)} degrees, altitude {sun.altitude.toFixed(1)} degrees. Moon azimuth{" "}
-        {moon.azimuth.toFixed(1)} degrees, altitude {moon.altitude.toFixed(1)} degrees, phase{" "}
-        {moon.phaseLabel}.
+        {sun.azimuth.toFixed(1)} degrees, altitude {sun.altitude.toFixed(1)} degrees, lighting phase{" "}
+        {sun.lightingPhase.label}. Moon azimuth {moon.azimuth.toFixed(1)} degrees, altitude{" "}
+        {moon.altitude.toFixed(1)} degrees, phase {moon.phaseLabel}.
       </p>
     </div>
   );
