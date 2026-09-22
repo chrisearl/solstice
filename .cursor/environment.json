@@ -1,0 +1,11 @@
+{
+  "name": "solstice",
+  "install": "corepack enable && pnpm install --frozen-lockfile",
+  "terminals": [
+    {
+      "name": "dev",
+      "command": "pnpm dev",
+      "description": "Next.js development server on port 3000"
+    }
+  ]
+}
