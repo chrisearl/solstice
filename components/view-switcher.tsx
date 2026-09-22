@@ -147,18 +147,19 @@ function DavinciPreview() {
   return (
     <svg viewBox="0 0 76 44" className="h-full w-full" aria-hidden>
       <rect width="76" height="44" fill="#dfcdad" />
-      <ellipse cx="38" cy="30" rx="26" ry="7" fill="none" stroke="#6b4a2b" strokeWidth="0.6" opacity="0.7" />
-      <ellipse cx="38" cy="22" rx="18" ry="6" fill="none" stroke="#6b4a2b" strokeWidth="0.5" opacity="0.45" />
-      <defs>
-        <mask id="davinci-preview-hatch">
-          <circle cx="38" cy="20" r="12" fill="white" />
-        </mask>
-      </defs>
-      <circle cx="38" cy="20" r="12" fill="#e7d4b0" stroke="#3a2412" strokeWidth="0.8" />
-      <g mask="url(#davinci-preview-hatch)" stroke="#3a2412" strokeWidth="0.55" opacity="0.85">
-        <path d="M24 12l28 16M24 16l28 16M24 20l28 16M24 24l28 16" />
-        <path d="M52 12L24 28M56 16L28 32M48 10L20 26" />
-      </g>
+      <ellipse cx="38" cy="32" rx="24" ry="6" fill="none" stroke="#6b4a2b" strokeWidth="0.8" />
+      <path d="M16 32c6-11 14-15 22-15s16 4 22 15" fill="none" stroke="#3a2412" strokeWidth="0.9" />
+      <path
+        d="M20 32c4-6 9-9 18-9s14 3 18 9"
+        fill="none"
+        stroke="#3a2412"
+        strokeWidth="0.6"
+        strokeDasharray="1.4 1.1"
+        opacity="0.75"
+      />
+      <circle cx="54" cy="20" r="3.1" fill="#e7d4b0" stroke="#3a2412" strokeWidth="0.55" />
+      <path d="M52 18.2l4 3.6M56 18.2l-4 3.6" stroke="#3a2412" strokeWidth="0.4" />
+      <circle cx="27" cy="24" r="2.2" fill="#e7d4b0" stroke="#3a2412" strokeWidth="0.5" />
     </svg>
   );
 }
