@@ -32,7 +32,6 @@ import {
   type AltitudeSample,
   type MoonModel,
   type MoonPlacement,
-  type SeasonJump,
   type SolarArc,
   type SolarDayTimes,
   type SolarModel,
@@ -42,7 +41,6 @@ import {
 interface ControlPanelProps {
   model: SolarModel;
   moonModel: MoonModel;
-  sun: SunPlacement;
   moon: MoonPlacement;
   latitude: number;
   longitude: number;
@@ -58,7 +56,6 @@ interface ControlPanelProps {
   orientationSupported: boolean;
   orientationHint?: string;
   samples: AltitudeSample[];
-  objectHeight: number;
   locating: boolean;
   geoError: string | null;
   compactHeader?: boolean;
@@ -70,9 +67,7 @@ interface ControlPanelProps {
   onDayIndex: (value: number) => void;
   onDate: (iso: string) => void;
   onMinutes: (value: number) => void;
-  onObjectHeight: (value: number) => void;
   onPlaying: (value: boolean) => void;
-  onJump: (kind: SeasonJump) => void;
   onShowSun: (value: boolean) => void;
   onShowMoon: (value: boolean) => void;
   onFollowHeading: (value: boolean) => void;
@@ -83,7 +78,6 @@ interface ControlPanelProps {
 export function ControlPanel(props: ControlPanelProps) {
   const latState = coordinateStatus(props.latText, -90, 90);
   const lngState = coordinateStatus(props.lngText, -180, 180);
-  const shadowMeters = shadowLengthMeters(props.sun.altitude, props.objectHeight);
 
   return (
     <section className="flex flex-col gap-4">
@@ -213,36 +207,6 @@ export function ControlPanel(props: ControlPanelProps) {
             aria-label="Pick a date"
           />
         </div>
-        <div className="grid grid-cols-4 gap-1.5">
-          <Jump label="Summer" onClick={() => props.onJump("summer")} />
-          <Jump label="March" onClick={() => props.onJump("march")} />
-          <Jump label="Sept" onClick={() => props.onJump("september")} />
-          <Jump label="Winter" onClick={() => props.onJump("winter")} />
-        </div>
-      </div>
-
-      <div className="space-y-2 border-t border-white/10 pt-3">
-        <div className="flex items-end justify-between gap-3">
-          <Label>Shadow length</Label>
-          <p className="font-mono text-xs text-[#f0b429]">{formatShadow(shadowMeters)}</p>
-        </div>
-        <label className="space-y-1">
-          <span className="text-[10px] tracking-wide text-white/40 uppercase">Object height (m)</span>
-          <Input
-            type="number"
-            min={0.1}
-            max={100}
-            step={0.1}
-            value={props.objectHeight}
-            onChange={(event) => {
-              const next = Number(event.target.value);
-              if (!Number.isFinite(next)) return;
-              props.onObjectHeight(Math.min(100, Math.max(0.1, Math.round(next * 10) / 10)));
-            }}
-            className="h-8 border-white/10 bg-black/20 font-mono text-white"
-            aria-label="Object height in meters"
-          />
-        </label>
       </div>
 
       <div className="space-y-2 border-t border-white/10 pt-3">
@@ -542,20 +506,6 @@ function Field({
         className="h-8 border-white/10 bg-black/20 font-mono text-white"
       />
     </label>
-  );
-}
-
-function Jump({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      className="border-white/10 bg-white/5 px-1 text-white/75 hover:bg-white/10"
-      onClick={onClick}
-    >
-      {label}
-    </Button>
   );
 }
 

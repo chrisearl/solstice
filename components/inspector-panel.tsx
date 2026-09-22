@@ -9,9 +9,7 @@ import type {
   AltitudeSample,
   MoonModel,
   MoonPlacement,
-  SeasonJump,
   SolarModel,
-  SunPlacement,
 } from "@/lib/solar";
 
 interface InspectorPanelProps {
@@ -19,7 +17,6 @@ interface InspectorPanelProps {
   state: InspectorState;
   model: SolarModel;
   moonModel: MoonModel;
-  sun: SunPlacement;
   moon: MoonPlacement;
   latitude: number;
   longitude: number;
@@ -35,7 +32,6 @@ interface InspectorPanelProps {
   orientationSupported: boolean;
   orientationHint?: string;
   samples: AltitudeSample[];
-  objectHeight: number;
   locating: boolean;
   geoError: string | null;
   onLatText: (value: string) => void;
@@ -45,9 +41,7 @@ interface InspectorPanelProps {
   onDayIndex: (value: number) => void;
   onDate: (iso: string) => void;
   onMinutes: (value: number) => void;
-  onObjectHeight: (value: number) => void;
   onPlaying: (value: boolean) => void;
-  onJump: (kind: SeasonJump) => void;
   onShowSun: (value: boolean) => void;
   onShowMoon: (value: boolean) => void;
   onFollowHeading: (value: boolean) => void;
@@ -66,7 +60,6 @@ export function InspectorPanel(props: InspectorPanelProps) {
   const panelProps = {
     model: props.model,
     moonModel: props.moonModel,
-    sun: props.sun,
     moon: props.moon,
     latitude: props.latitude,
     longitude: props.longitude,
@@ -82,7 +75,6 @@ export function InspectorPanel(props: InspectorPanelProps) {
     orientationSupported: props.orientationSupported,
     orientationHint: props.orientationHint,
     samples: props.samples,
-    objectHeight: props.objectHeight,
     locating: props.locating,
     geoError: props.geoError,
     onLatText: props.onLatText,
@@ -92,9 +84,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
     onDayIndex: props.onDayIndex,
     onDate: props.onDate,
     onMinutes: props.onMinutes,
-    onObjectHeight: props.onObjectHeight,
     onPlaying: props.onPlaying,
-    onJump: props.onJump,
     onShowSun: props.onShowSun,
     onShowMoon: props.onShowMoon,
     onFollowHeading: props.onFollowHeading,

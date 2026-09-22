@@ -25,14 +25,11 @@ import {
   buildSolarModel,
   coordinateStatus,
   dayIndexFromLocalDate,
-  dayIndexFromUtcDate,
   daysInYear,
   locationLabel,
   parseIsoDate,
   placeMoon,
   placeSun,
-  seasonalDates,
-  type SeasonJump,
 } from "@/lib/solar";
 import {
   buildTimelineWindow,
@@ -449,7 +446,6 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   const sharedPanelProps = {
     model,
     moonModel,
-    sun,
     moon,
     latitude,
     longitude,
@@ -465,7 +461,6 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     orientationSupported,
     orientationHint,
     samples,
-    objectHeight,
     locating,
     geoError,
     onLatText: applyLatitude,
@@ -500,23 +495,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
         solarStateToOffset(timelineWindow.anchorMs, year, dayIndex, value, longitude),
       );
     },
-    onObjectHeight: (value: number) => {
-      if (!Number.isFinite(value)) return;
-      setObjectHeight(Math.min(100, Math.max(0.1, value)));
-    },
     onPlaying: setPlaying,
-    onJump: (kind: SeasonJump) => {
-      const seasons = seasonalDates(year, latitude, longitude);
-      const date = seasons[kind];
-      const nextYear = date.getUTCFullYear();
-      const nextDayIndex = dayIndexFromUtcDate(date);
-      setPlaying(false);
-      setYear(nextYear);
-      setDayIndex(nextDayIndex);
-      setTimelineOffset(
-        solarStateToOffset(timelineWindow.anchorMs, nextYear, nextDayIndex, minutes, longitude),
-      );
-    },
     onShowSun: setShowSun,
     onShowMoon: setShowMoon,
     onFollowHeading: handleFollowHeading,
