@@ -3,6 +3,7 @@
 import { ChevronDown, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ControlPanel } from "@/components/control-panel";
+import type { ChromeTone } from "@/lib/light";
 import type { Breakpoint, InspectorState } from "@/lib/layout-insets";
 import type {
   AltitudeSample,
@@ -52,6 +53,7 @@ interface InspectorPanelProps {
   onFollowHeading: (value: boolean) => void;
   onResetView: () => void;
   onResetPlace: () => void;
+  tone?: ChromeTone;
   onClose: () => void;
   onPeek: () => void;
   onOpen: () => void;
@@ -99,6 +101,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
     onResetView: props.onResetView,
     onResetPlace: props.onResetPlace,
     compactHeader: true as const,
+    tone: props.tone,
   };
 
   if (breakpoint === "mobile") {
@@ -111,6 +114,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
           onClick={props.onClose}
         />
         <aside
+          data-chrome-panel
           className={`fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,30,0.96),rgba(8,10,16,0.94))] shadow-[0_-24px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl transition-[max-height] duration-300 ease-out motion-reduce:transition-none ${
             state === "peek" ? "max-h-[4.5rem]" : "max-h-[min(52dvh,28rem)]"
           }`}
@@ -140,6 +144,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
         onClick={props.onClose}
       />
       <aside
+        data-chrome-panel
         className={`fixed top-0 bottom-0 left-0 z-40 flex w-[min(340px,88vw)] flex-col border-r border-white/10 bg-[linear-gradient(180deg,rgba(16,20,30,0.96),rgba(8,10,16,0.92))] shadow-[24px_0_80px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-transform duration-300 ease-out motion-reduce:transition-none md:w-[min(360px,40vw)] ${
           state === "open" ? "translate-x-0" : "-translate-x-full"
         }`}

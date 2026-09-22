@@ -123,10 +123,11 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     setView(next);
   };
 
-  const showStudioChrome = view === "default" && !fullscreen;
+  const showStudioChrome = !fullscreen;
+  const parchment = view === "davinci";
 
   useEffect(() => {
-    if (!playing || view !== "default") return;
+    if (!playing) return;
     let frame = 0;
     let last = performance.now();
     const tick = (now: number) => {
@@ -137,20 +138,19 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [playing, view]);
+  }, [playing]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.code !== "Space") return;
       const tag = (event.target as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON") return;
-      if (view !== "default") return;
       event.preventDefault();
       setPlaying((value) => !value);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [view]);
+  }, []);
 
   useEffect(() => {
     const node = stageRef.current;
@@ -398,6 +398,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
       setFollowHeading(false);
       setResetSignal((value) => value + 1);
     },
+    tone: parchment ? ("parchment" as const) : ("night" as const),
     onResetPlace: () => {
       applyPreset(ORLANDO.lat, ORLANDO.lng);
       const today = dayIndexFromLocalDate(new Date());
@@ -460,12 +461,19 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
             moonArc={moonModel.arc}
             showSun={showSun}
             showMoon={showMoon}
+            followHeading={followHeading}
+            deviceHeading={deviceHeading}
+            resetSignal={resetSignal}
+            layoutInsets={sceneInsets}
           />
         </div>
       )}
 
-      {view === "default" && (
-        <SceneHud
+      <div
+        data-chrome={parchment ? "parchment" : undefined}
+        className="pointer-events-none absolute inset-0 z-20"
+      >
+      <SceneHud
           breakpoint={breakpoint}
           model={model}
           moonModel={moonModel}
@@ -479,6 +487,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
           showMoon={showMoon}
           inspectorOpen={inspectorOpen}
           variant={fullscreen ? "minimal" : "full"}
+          tone={parchment ? "parchment" : "night"}
           followHeading={followHeading}
           deviceHeading={deviceHeading}
           onMinutes={(value) => {
@@ -493,10 +502,12 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
           onFollowHeading={handleFollowHeading}
           onToggleInspector={toggleInspector}
         />
-      )}
 
       {showStudioChrome && showPinnedInspector && (
-        <aside className="pointer-events-auto fixed top-3 bottom-3 left-3 z-30 hidden w-[min(360px,calc(100vw-28rem))] flex-col rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,30,0.92),rgba(8,10,16,0.86))] shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl lg:flex 2xl:w-[min(400px,calc(100vw-32rem))]">
+        <aside
+          data-chrome-panel
+          className="pointer-events-auto fixed top-3 bottom-3 left-3 z-30 hidden w-[min(360px,calc(100vw-28rem))] flex-col rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,30,0.92),rgba(8,10,16,0.86))] shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl lg:flex 2xl:w-[min(400px,calc(100vw-32rem))]"
+        >
           <div className="panel-scroll min-h-0 flex-1 overflow-y-auto p-5">
             <ControlPanel {...sharedPanelProps} compactHeader />
           </div>
@@ -546,6 +557,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
             <PanelLeftOpen className="size-5" />
           </button>
         )}
+      </div>
 
       <ViewSwitcher
         view={view}

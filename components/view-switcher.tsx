@@ -30,7 +30,7 @@ export function ViewSwitcher({
   className = "",
 }: ViewSwitcherProps) {
   const parchment = view === "davinci";
-  const position = dockPosition({ view, fullscreen, breakpoint, inspectorState });
+  const position = dockPosition({ fullscreen, breakpoint, inspectorState });
 
   return (
     <div className={`pointer-events-auto absolute z-50 flex items-end gap-1.5 transition-[bottom] duration-300 ease-out motion-reduce:transition-none ${position} ${className}`}>
@@ -57,7 +57,9 @@ export function ViewSwitcher({
               role="radio"
               aria-checked={selected}
               onClick={() => onView(option.id)}
-              className="flex w-[4.5rem] flex-col items-center gap-1 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f0b429]"
+              className={`flex w-[4.5rem] flex-col items-center gap-1 rounded-lg focus-visible:outline-none focus-visible:ring-2 ${
+                parchment ? "focus-visible:ring-[#5c3b1e]" : "focus-visible:ring-[#f0b429]"
+              }`}
             >
               <span
                 className={`block h-11 w-full overflow-hidden rounded-md border-2 ${
@@ -102,21 +104,19 @@ export function ViewSwitcher({
 }
 
 function dockPosition({
-  view,
   fullscreen,
   breakpoint,
   inspectorState,
 }: {
-  view: StudioView;
   fullscreen: boolean;
   breakpoint: Breakpoint;
   inspectorState: InspectorState;
 }) {
   const base = "left-1/2 -translate-x-1/2";
-  if (view === "default" && !fullscreen && breakpoint === "mobile" && inspectorState === "open") {
+  if (!fullscreen && breakpoint === "mobile" && inspectorState === "open") {
     return `${base} bottom-[calc(min(52dvh,28rem)+0.75rem)]`;
   }
-  if (view === "default" && !fullscreen && breakpoint === "mobile" && inspectorState === "peek") {
+  if (!fullscreen && breakpoint === "mobile" && inspectorState === "peek") {
     return `${base} bottom-[calc(4.5rem+0.75rem+env(safe-area-inset-bottom))]`;
   }
   return `${base} bottom-[max(1rem,env(safe-area-inset-bottom))]`;
