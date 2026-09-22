@@ -6,6 +6,11 @@ import { useEffect, useMemo, useState } from "react";
 import { ControlPanel, StatRail } from "@/components/control-panel";
 import { InspectorPanel } from "@/components/inspector-panel";
 import { SceneHud } from "@/components/scene-hud";
+import {
+  isDeviceOrientationSupported,
+  requestDeviceOrientationPermission,
+  useDeviceOrientation,
+} from "@/hooks/use-device-orientation";
 import { useInspectorLayout, useLayout } from "@/hooks/use-layout";
 import type { ParsedView } from "@/lib/view-query";
 import { serializeViewQuery } from "@/lib/view-query";
@@ -51,6 +56,33 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   const [resetSignal, setResetSignal] = useState(0);
   const [showSun, setShowSun] = useState(true);
   const [showMoon, setShowMoon] = useState(true);
+  const [followHeading, setFollowHeading] = useState(false);
+
+  const { state: orientationState, markDenied } = useDeviceOrientation(followHeading);
+  const orientationSupported = isDeviceOrientationSupported();
+  const deviceHeading =
+    orientationState.status === "active" ? orientationState.heading : null;
+  const orientationHint =
+    orientationState.status === "denied"
+      ? "Permission denied"
+      : !orientationSupported
+        ? "Compass unavailable on this device"
+        : undefined;
+
+  const handleFollowHeading = async (value: boolean) => {
+    if (!value) {
+      setFollowHeading(false);
+      return;
+    }
+    const permission = await requestDeviceOrientationPermission();
+    if (permission === "granted") {
+      setFollowHeading(true);
+      return;
+    }
+    if (permission === "denied") {
+      markDenied();
+    }
+  };
 
   const {
     breakpoint,
@@ -208,6 +240,9 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     dayCount: daysInYear(year),
     showSun,
     showMoon,
+    followHeading,
+    orientationSupported,
+    orientationHint,
     samples,
     objectHeight,
     locating,
@@ -240,7 +275,11 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     },
     onShowSun: setShowSun,
     onShowMoon: setShowMoon,
-    onResetView: () => setResetSignal((value) => value + 1),
+    onFollowHeading: handleFollowHeading,
+    onResetView: () => {
+      setFollowHeading(false);
+      setResetSignal((value) => value + 1);
+    },
     onResetPlace: () => {
       applyPreset(ORLANDO.lat, ORLANDO.lng);
       const today = dayIndexFromLocalDate(new Date());
@@ -252,6 +291,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
       setGeoError(null);
       setShowSun(true);
       setShowMoon(true);
+      setFollowHeading(false);
     },
   };
 
@@ -269,6 +309,8 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
           moonArc={moonModel.arc}
           showSun={showSun}
           showMoon={showMoon}
+          followHeading={followHeading}
+          deviceHeading={deviceHeading}
           resetSignal={resetSignal}
           layoutInsets={insets}
         />
@@ -288,12 +330,18 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
         showSun={showSun}
         showMoon={showMoon}
         inspectorOpen={inspectorOpen}
+        followHeading={followHeading}
+        deviceHeading={deviceHeading}
         onMinutes={(value) => {
           setPlaying(false);
           setMinutes(value);
         }}
         onPlaying={setPlaying}
-        onResetView={() => setResetSignal((value) => value + 1)}
+        onResetView={() => {
+          setFollowHeading(false);
+          setResetSignal((value) => value + 1);
+        }}
+        onFollowHeading={handleFollowHeading}
         onToggleInspector={toggleInspector}
       />
 
