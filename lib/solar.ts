@@ -661,7 +661,7 @@ export function buildSolarModel(input: {
   };
 }
 
-function validDate(value: Date | undefined): Date | null {
+function validDate(value: Date | null | undefined): Date | null {
   return value && !Number.isNaN(value.getTime()) ? value : null;
 }
 
