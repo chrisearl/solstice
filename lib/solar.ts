@@ -1,10 +1,14 @@
 import {
+  addTime,
   getMoonIllumination,
   getMoonPosition,
   getMoonTimes,
   getPosition,
   getTimes,
 } from "suncalc";
+
+/** Blue hour boundaries at −4° below the horizon (not included in stock SunCalc). */
+addTime(-4, "blueHourEnd", "blueHour");
 
 /** Ground disc radius in scene units. */
 export const DISC_RADIUS = 5.2;
@@ -77,18 +81,47 @@ export interface SolarArc {
   apex: Vec3 | null;
 }
 
+export type SunLightingPhase =
+  | "polar_night"
+  | "polar_day"
+  | "night"
+  | "astronomical_twilight"
+  | "nautical_twilight"
+  | "blue_hour"
+  | "civil_twilight"
+  | "golden_hour"
+  | "daylight";
+
+export interface SunLightingPhaseInfo {
+  id: SunLightingPhase;
+  label: string;
+  hint: string;
+}
+
+export interface SolarDayTimes {
+  sunrise: Date | null;
+  sunset: Date | null;
+  solarNoon: Date;
+  alwaysUp: boolean;
+  alwaysDown: boolean;
+  dayLengthMs: number | null;
+  dawn: Date | null;
+  dusk: Date | null;
+  nauticalDawn: Date | null;
+  nauticalDusk: Date | null;
+  nightEnd: Date | null;
+  night: Date | null;
+  goldenHourEnd: Date | null;
+  goldenHour: Date | null;
+  blueHourEnd: Date | null;
+  blueHour: Date | null;
+}
+
 export interface SolarModel {
   date: Date;
   arcs: SolarArc[];
   note: string | null;
-  times: {
-    sunrise: Date | null;
-    sunset: Date | null;
-    solarNoon: Date;
-    alwaysUp: boolean;
-    alwaysDown: boolean;
-    dayLengthMs: number | null;
-  };
+  times: SolarDayTimes;
 }
 
 export interface SunPlacement {
@@ -98,6 +131,7 @@ export interface SunPlacement {
   bearing: Vec3;
   aboveHorizon: boolean;
   shadow: Vec3 | null;
+  lightingPhase: SunLightingPhaseInfo;
 }
 
 /** Shared arc geometry for sun seasonal paths and the moon path. */
@@ -623,15 +657,183 @@ export function buildSolarModel(input: {
     date,
     arcs,
     note,
-    times: {
-      sunrise: times.sunrise,
-      sunset: times.sunset,
-      solarNoon: times.solarNoon,
-      alwaysUp: Boolean(times.alwaysUp),
-      alwaysDown: Boolean(times.alwaysDown),
-      dayLengthMs,
-    },
+    times: extractSolarDayTimes(times, dayLengthMs),
   };
+}
+
+function validDate(value: Date | undefined): Date | null {
+  return value && !Number.isNaN(value.getTime()) ? value : null;
+}
+
+function extractSolarDayTimes(
+  times: ReturnType<typeof getTimes>,
+  dayLengthMs: number | null,
+): SolarDayTimes {
+  return {
+    sunrise: validDate(times.sunrise),
+    sunset: validDate(times.sunset),
+    solarNoon: times.solarNoon,
+    alwaysUp: Boolean(times.alwaysUp),
+    alwaysDown: Boolean(times.alwaysDown),
+    dayLengthMs,
+    dawn: validDate(times.dawn),
+    dusk: validDate(times.dusk),
+    nauticalDawn: validDate(times.nauticalDawn),
+    nauticalDusk: validDate(times.nauticalDusk),
+    nightEnd: validDate(times.nightEnd),
+    night: validDate(times.night),
+    goldenHourEnd: validDate(times.goldenHourEnd),
+    goldenHour: validDate(times.goldenHour),
+    blueHourEnd: validDate((times as Record<string, Date | undefined>).blueHourEnd),
+    blueHour: validDate((times as Record<string, Date | undefined>).blueHour),
+  };
+}
+
+const LIGHTING_LABELS: Record<SunLightingPhase, string> = {
+  polar_night: "Polar night",
+  polar_day: "Midnight sun",
+  night: "Night",
+  astronomical_twilight: "Astronomical twilight",
+  nautical_twilight: "Nautical twilight",
+  blue_hour: "Blue hour",
+  civil_twilight: "Civil twilight",
+  golden_hour: "Golden hour",
+  daylight: "Daylight",
+};
+
+function lightingHint(phase: SunLightingPhase, morning: boolean | null): string {
+  switch (phase) {
+    case "polar_night":
+      return "Sun stays below the horizon all day";
+    case "polar_day":
+      return "Sun stays above the horizon all day";
+    case "night":
+      return "Sun more than 18° below the horizon";
+    case "astronomical_twilight":
+      return morning === null
+        ? "Faint stars begin to fade"
+        : morning
+          ? "Before nautical dawn"
+          : "After nautical dusk";
+    case "nautical_twilight":
+      return morning === null
+        ? "Horizon line visible at sea"
+        : morning
+          ? "Before civil dawn"
+          : "After civil dusk";
+    case "blue_hour":
+      return morning === null
+        ? "Cool twilight glow"
+        : morning
+          ? "Before sunrise"
+          : "After sunset";
+    case "civil_twilight":
+      return morning === null
+        ? "Enough light to see clearly"
+        : morning
+          ? "Before sunrise"
+          : "After sunset";
+    case "golden_hour":
+      return morning === null
+        ? "Warm, low-angle sunlight"
+        : morning
+          ? "After sunrise"
+          : "Before sunset";
+    case "daylight":
+      return "Direct sunlight, sun above 6°";
+    default:
+      return "";
+  }
+}
+
+function phaseInfo(id: SunLightingPhase, morning: boolean | null): SunLightingPhaseInfo {
+  return { id, label: LIGHTING_LABELS[id], hint: lightingHint(id, morning) };
+}
+
+function meanSolarMinutes(date: Date, longitude: number): number {
+  const offsetMs = (longitude / 15) * 3_600_000;
+  const local = new Date(date.getTime() + offsetMs);
+  return (
+    local.getUTCHours() * 60 +
+    local.getUTCMinutes() +
+    local.getUTCSeconds() / 60 +
+    local.getUTCMilliseconds() / 60_000
+  );
+}
+
+/** Resolve the current sun lighting phase from mean-solar time and daily boundaries. */
+export function resolveSunLightingPhase(
+  minutes: number,
+  times: SolarDayTimes,
+  altitude: number,
+  longitude: number,
+): SunLightingPhaseInfo {
+  if (times.alwaysDown) return phaseInfo("polar_night", null);
+  if (times.alwaysUp) return phaseInfo("polar_day", null);
+
+  const clock = ((minutes % 1440) + 1440) % 1440;
+  const {
+    nightEnd,
+    night,
+    nauticalDawn,
+    nauticalDusk,
+    dawn,
+    dusk,
+    blueHourEnd,
+    blueHour,
+    sunrise,
+    sunset,
+    goldenHourEnd,
+    goldenHour,
+  } = times;
+
+  const hasTwilight =
+    dawn &&
+    dusk &&
+    nauticalDawn &&
+    nauticalDusk &&
+    nightEnd &&
+    night &&
+    sunrise &&
+    sunset;
+
+  if (hasTwilight) {
+    const nightEndMin = meanSolarMinutes(nightEnd, longitude);
+    const nightMin = meanSolarMinutes(night, longitude);
+
+    if (clock < nightEndMin || clock >= nightMin) return phaseInfo("night", null);
+    if (clock < meanSolarMinutes(nauticalDawn, longitude)) {
+      return phaseInfo("astronomical_twilight", true);
+    }
+    if (clock < meanSolarMinutes(dawn, longitude)) return phaseInfo("nautical_twilight", true);
+    if (blueHourEnd && clock < meanSolarMinutes(blueHourEnd, longitude)) {
+      return phaseInfo("blue_hour", true);
+    }
+    if (clock < meanSolarMinutes(sunrise, longitude)) return phaseInfo("civil_twilight", true);
+    if (goldenHourEnd && clock < meanSolarMinutes(goldenHourEnd, longitude)) {
+      return phaseInfo("golden_hour", true);
+    }
+    if (goldenHour && clock < meanSolarMinutes(goldenHour, longitude)) {
+      return phaseInfo("daylight", null);
+    }
+    if (clock < meanSolarMinutes(sunset, longitude)) return phaseInfo("golden_hour", false);
+    if (blueHour && clock < meanSolarMinutes(blueHour, longitude)) {
+      return phaseInfo("civil_twilight", false);
+    }
+    if (clock < meanSolarMinutes(dusk, longitude)) return phaseInfo("blue_hour", false);
+    if (clock < meanSolarMinutes(nauticalDusk, longitude)) {
+      return phaseInfo("nautical_twilight", false);
+    }
+    return phaseInfo("astronomical_twilight", false);
+  }
+
+  if (altitude >= 6) return phaseInfo("daylight", null);
+  if (altitude >= 0) return phaseInfo("golden_hour", null);
+  if (altitude >= -4) return phaseInfo("civil_twilight", null);
+  if (altitude >= -6) return phaseInfo("blue_hour", null);
+  if (altitude >= -12) return phaseInfo("nautical_twilight", null);
+  if (altitude >= -18) return phaseInfo("astronomical_twilight", null);
+  return phaseInfo("night", null);
 }
 
 export function moonPhaseLabel(phase: number, waxing: boolean): string {
@@ -711,6 +913,7 @@ export function placeSun(
   minutes: number,
   latitude: number,
   longitude: number,
+  dayTimes?: SolarDayTimes,
 ): SunPlacement {
   const instant = instantAtMinutes(
     date.getUTCFullYear(),
@@ -724,6 +927,10 @@ export function placeSun(
   const bearing = project(position.azimuth, 0, SKY_RADIUS);
   bearing.y = 0.05;
 
+  const times =
+    dayTimes ??
+    extractSolarDayTimes(getTimes(date, latitude, longitude), null);
+
   return {
     azimuth: position.azimuth,
     altitude: position.altitude,
@@ -734,6 +941,12 @@ export function placeSun(
       position.altitude > 0.15
         ? gnomonShadow(sky, GNOMON_HEIGHT, DISC_RADIUS)
         : null,
+    lightingPhase: resolveSunLightingPhase(
+      minutes,
+      times,
+      position.altitude,
+      longitude,
+    ),
   };
 }
 

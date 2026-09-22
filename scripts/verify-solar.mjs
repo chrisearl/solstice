@@ -9,6 +9,7 @@ import {
   placeMoon,
   placeSun,
   project,
+  resolveSunLightingPhase,
 } from "../lib/solar.ts";
 
 const ORLANDO = { lat: 28.5383, lng: -81.3792 };
@@ -95,4 +96,44 @@ test("gnomon shadow falls opposite the sun", () => {
   assert.ok(shadow);
   assert.ok(shadow.z > 0);
   assert.ok(Math.abs(shadow.x) < 0.2);
+});
+
+test("Orlando June lighting phases resolve across the day", () => {
+  const model = buildSolarModel({
+    year: 2026,
+    dayIndex: 171,
+    latitude: ORLANDO.lat,
+    longitude: ORLANDO.lng,
+  });
+
+  assert.ok(model.times.dawn);
+  assert.ok(model.times.goldenHour);
+  assert.ok(model.times.blueHour);
+
+  const nautical = placeSun(model.date, 4 * 60 + 15, ORLANDO.lat, ORLANDO.lng, model.times);
+  assert.equal(nautical.lightingPhase.id, "nautical_twilight");
+
+  const morningGold = placeSun(model.date, 5 * 60 + 20, ORLANDO.lat, ORLANDO.lng, model.times);
+  assert.equal(morningGold.lightingPhase.id, "golden_hour");
+
+  const midday = placeSun(model.date, 12 * 60, ORLANDO.lat, ORLANDO.lng, model.times);
+  assert.equal(midday.lightingPhase.id, "daylight");
+
+  const eveningGold = placeSun(model.date, 18 * 60 + 45, ORLANDO.lat, ORLANDO.lng, model.times);
+  assert.equal(eveningGold.lightingPhase.id, "golden_hour");
+
+  const blue = placeSun(model.date, 19 * 60 + 20, ORLANDO.lat, ORLANDO.lng, model.times);
+  assert.equal(blue.lightingPhase.id, "blue_hour");
+});
+
+test("resolveSunLightingPhase handles polar night", () => {
+  const model = buildSolarModel({
+    year: 2026,
+    dayIndex: 355,
+    latitude: 64.1466,
+    longitude: -21.9426,
+  });
+  if (!model.times.alwaysDown) return;
+  const sun = placeSun(model.date, 12 * 60, 64.1466, -21.9426, model.times);
+  assert.equal(sun.lightingPhase.id, "polar_night");
 });
