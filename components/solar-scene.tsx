@@ -41,6 +41,7 @@ interface SolarSceneProps {
   deviceHeading: number | null;
   resetSignal: number;
   layoutInsets: LayoutInsets;
+  active?: boolean;
 }
 
 const DEG = Math.PI / 180;
@@ -57,11 +58,13 @@ export default function SolarScene({
   deviceHeading,
   resetSignal,
   layoutInsets,
+  active = true,
 }: SolarSceneProps) {
   return (
     <Canvas
       camera={{ position: [10.8, 6.4, 13.2], fov: 38, near: 0.1, far: 200 }}
       dpr={[1, 2]}
+      frameloop={active ? "always" : "never"}
       gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
       onCreated={({ gl }) => {
         gl.setClearColor("#07080d");

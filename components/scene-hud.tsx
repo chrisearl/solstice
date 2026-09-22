@@ -46,6 +46,7 @@ interface SceneHudProps {
   showSun: boolean;
   showMoon: boolean;
   inspectorOpen: boolean;
+  variant?: "full" | "minimal";
   followHeading: boolean;
   deviceHeading: number | null;
   onMinutes: (value: number) => void;
@@ -76,6 +77,32 @@ export function SceneHud(props: SceneHudProps) {
   }, [timeZone, props.model.date, props.minutes, props.longitude]);
   const seek = (instant: Date | null) => seekMinute(instant, props.model.date, props.longitude);
   const wide = props.breakpoint === "tablet" || props.breakpoint === "desktop" || props.breakpoint === "large";
+
+  if (props.variant === "minimal") {
+    return (
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-end px-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
+        <div className="pointer-events-auto flex gap-1.5">
+          <HudAction
+            label={props.playing ? "Pause day" : "Play day"}
+            pressed={props.playing}
+            onClick={() => props.onPlaying(!props.playing)}
+          >
+            {props.playing ? <Pause /> : <Play />}
+          </HudAction>
+          <HudAction label="Reset camera" onClick={props.onResetView}>
+            <RotateCcw />
+          </HudAction>
+          <HudAction
+            label={props.followHeading ? "Stop following heading" : "Follow device heading"}
+            pressed={props.followHeading}
+            onClick={() => props.onFollowHeading(!props.followHeading)}
+          >
+            <Compass />
+          </HudAction>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 px-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] md:px-4 lg:px-5">
