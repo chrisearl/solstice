@@ -23,6 +23,9 @@ interface InspectorPanelProps {
   dayCount: number;
   showSun: boolean;
   showMoon: boolean;
+  followHeading: boolean;
+  orientationSupported: boolean;
+  orientationHint?: string;
   onLatText: (value: string) => void;
   onLngText: (value: string) => void;
   onPreset: (lat: number, lng: number) => void;
@@ -33,6 +36,7 @@ interface InspectorPanelProps {
   onJump: (kind: "summer" | "equinox" | "winter") => void;
   onShowSun: (value: boolean) => void;
   onShowMoon: (value: boolean) => void;
+  onFollowHeading: (value: boolean) => void;
   onResetView: () => void;
   onResetPlace: () => void;
   onClose: () => void;
@@ -59,6 +63,9 @@ export function InspectorPanel(props: InspectorPanelProps) {
     dayCount: props.dayCount,
     showSun: props.showSun,
     showMoon: props.showMoon,
+    followHeading: props.followHeading,
+    orientationSupported: props.orientationSupported,
+    orientationHint: props.orientationHint,
     onLatText: props.onLatText,
     onLngText: props.onLngText,
     onPreset: props.onPreset,
@@ -69,6 +76,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
     onJump: props.onJump,
     onShowSun: props.onShowSun,
     onShowMoon: props.onShowMoon,
+    onFollowHeading: props.onFollowHeading,
     onResetView: props.onResetView,
     onResetPlace: props.onResetPlace,
     compactHeader: true as const,

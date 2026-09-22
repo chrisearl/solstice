@@ -11,6 +11,7 @@ import {
   useMemo,
   useRef,
 } from "react";
+import type { Group } from "three";
 import * as THREE from "three";
 import { createCompassTexture } from "@/lib/compass-texture";
 import type { LayoutInsets } from "@/lib/layout-insets";
@@ -32,9 +33,13 @@ interface SolarSceneProps {
   moonArc: SkyPath;
   showSun: boolean;
   showMoon: boolean;
+  followHeading: boolean;
+  deviceHeading: number | null;
   resetSignal: number;
   layoutInsets: LayoutInsets;
 }
+
+const DEG = Math.PI / 180;
 
 export default function SolarScene({
   arcs,
@@ -43,6 +48,8 @@ export default function SolarScene({
   moonArc,
   showSun,
   showMoon,
+  followHeading,
+  deviceHeading,
   resetSignal,
   layoutInsets,
 }: SolarSceneProps) {
@@ -63,6 +70,8 @@ export default function SolarScene({
           moonArc={moonArc}
           showSun={showSun}
           showMoon={showMoon}
+          followHeading={followHeading}
+          deviceHeading={deviceHeading}
           resetSignal={resetSignal}
           layoutInsets={layoutInsets}
         />
@@ -78,62 +87,86 @@ function SceneContent({
   moonArc,
   showSun,
   showMoon,
+  followHeading,
+  deviceHeading,
   resetSignal,
   layoutInsets,
 }: SolarSceneProps) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
+  const headingGroup = useRef<Group>(null);
+
+  useEffect(() => {
+    if (!followHeading) return;
+    const orbit = controls.current;
+    if (!orbit) return;
+    orbit.setAzimuthalAngle(0);
+    orbit.update();
+  }, [followHeading]);
+
+  useFrame(() => {
+    const group = headingGroup.current;
+    if (!group) return;
+    if (followHeading && deviceHeading !== null) {
+      group.rotation.y = -deviceHeading * DEG;
+      return;
+    }
+    group.rotation.y = 0;
+  });
 
   return (
     <>
       <color attach="background" args={["#07080d"]} />
-      <SkyDome />
-      <Stars
-        radius={26}
-        depth={14}
-        count={1400}
-        factor={2.4}
-        saturation={0}
-        fade
-        speed={0.25}
-      />
-      <ambientLight intensity={0.28} />
-      <hemisphereLight args={["#24324a", "#090b10", 0.55]} />
-      <directionalLight position={[6, 8, 3]} intensity={0.4} color="#d5e2f5" />
-      {showSun && sun.altitude > -2 && (
-        <pointLight
-          position={[sun.position.x, Math.max(sun.position.y, 0.2), sun.position.z]}
-          intensity={sun.aboveHorizon ? 18 : 2}
-          distance={28}
-          decay={2}
-          color="#ffc98a"
+      <group ref={headingGroup}>
+        <SkyDome />
+        <Stars
+          radius={26}
+          depth={14}
+          count={1400}
+          factor={2.4}
+          saturation={0}
+          fade
+          speed={0.25}
         />
-      )}
-      {showMoon && moon.aboveHorizon && (
-        <pointLight
-          position={[moon.position.x, Math.max(moon.position.y, 0.2), moon.position.z]}
-          intensity={4.5 * moon.fraction}
-          distance={22}
-          decay={2}
-          color="#d8e4f4"
-        />
-      )}
-      <CompassDisc />
-      <Gnomon />
-      {showSun &&
-        arcs.map((arc) => (
-          <SkyArc key={arc.id} arc={arc} />
-        ))}
-      {showMoon && <SkyArc arc={moonArc} />}
-      {showSun && <SunBody sun={sun} />}
-      {showSun && <ShadowRig sun={sun} />}
-      {showSun && <Bearing sun={sun} color="#ffd78a" />}
-      {showMoon && <MoonBody moon={moon} />}
-      {showMoon && <Bearing sun={moon} color="#d8e4f4" />}
+        <ambientLight intensity={0.28} />
+        <hemisphereLight args={["#24324a", "#090b10", 0.55]} />
+        <directionalLight position={[6, 8, 3]} intensity={0.4} color="#d5e2f5" />
+        {showSun && sun.altitude > -2 && (
+          <pointLight
+            position={[sun.position.x, Math.max(sun.position.y, 0.2), sun.position.z]}
+            intensity={sun.aboveHorizon ? 18 : 2}
+            distance={28}
+            decay={2}
+            color="#ffc98a"
+          />
+        )}
+        {showMoon && moon.aboveHorizon && (
+          <pointLight
+            position={[moon.position.x, Math.max(moon.position.y, 0.2), moon.position.z]}
+            intensity={4.5 * moon.fraction}
+            distance={22}
+            decay={2}
+            color="#d8e4f4"
+          />
+        )}
+        <CompassDisc />
+        <Gnomon />
+        {showSun &&
+          arcs.map((arc) => (
+            <SkyArc key={arc.id} arc={arc} />
+          ))}
+        {showMoon && <SkyArc arc={moonArc} />}
+        {showSun && <SunBody sun={sun} />}
+        {showSun && <ShadowRig sun={sun} />}
+        {showSun && <Bearing sun={sun} color="#ffd78a" />}
+        {showMoon && <MoonBody moon={moon} />}
+        {showMoon && <Bearing sun={moon} color="#d8e4f4" />}
+      </group>
       <OrbitControls
         ref={controls}
         enableDamping
         dampingFactor={0.08}
         enablePan
+        enableRotate={!followHeading}
         minDistance={3.4}
         maxDistance={48}
         minPolarAngle={0.12}

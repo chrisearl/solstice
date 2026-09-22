@@ -52,6 +52,9 @@ interface ControlPanelProps {
   dayCount: number;
   showSun: boolean;
   showMoon: boolean;
+  followHeading: boolean;
+  orientationSupported: boolean;
+  orientationHint?: string;
   compactHeader?: boolean;
   onLatText: (value: string) => void;
   onLngText: (value: string) => void;
@@ -63,6 +66,7 @@ interface ControlPanelProps {
   onJump: (kind: "summer" | "equinox" | "winter") => void;
   onShowSun: (value: boolean) => void;
   onShowMoon: (value: boolean) => void;
+  onFollowHeading: (value: boolean) => void;
   onResetView: () => void;
   onResetPlace: () => void;
 }
@@ -245,6 +249,21 @@ export function ControlPanel(props: ControlPanelProps) {
             onClick={() => props.onShowMoon(!props.showMoon)}
           />
         </div>
+      </div>
+
+      <div className="space-y-2 border-t border-white/10 pt-3">
+        <Label>View</Label>
+        <BodyToggle
+          icon={<Compass />}
+          label="Follow heading"
+          active={props.followHeading}
+          disabled={!props.orientationSupported}
+          fullWidth
+          onClick={() => props.onFollowHeading(!props.followHeading)}
+        />
+        {props.orientationHint && (
+          <p className="text-[10px] leading-snug text-white/45">{props.orientationHint}</p>
+        )}
       </div>
 
       {props.showSun && (
@@ -452,11 +471,15 @@ function BodyToggle({
   icon,
   label,
   active,
+  disabled = false,
+  fullWidth = false,
   onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   active: boolean;
+  disabled?: boolean;
+  fullWidth?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -464,11 +487,12 @@ function BodyToggle({
       type="button"
       variant={active ? "default" : "outline"}
       size="sm"
-      className={
+      disabled={disabled}
+      className={`${fullWidth ? "w-full" : ""} ${
         active
           ? "bg-[#f0b429] text-[#1b1406] hover:bg-[#f0b429]/90"
           : "border-white/10 bg-white/5 text-white/75 hover:bg-white/10"
-      }
+      } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
       aria-pressed={active}
       onClick={onClick}
     >

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+  compassLabel,
   formatDegrees,
   formatLongDate,
   formatMeanTime,
@@ -39,8 +40,11 @@ interface SceneHudProps {
   showSun: boolean;
   showMoon: boolean;
   inspectorOpen: boolean;
+  followHeading: boolean;
+  deviceHeading: number | null;
   onPlaying: (value: boolean) => void;
   onResetView: () => void;
+  onFollowHeading: (value: boolean) => void;
   onToggleInspector: () => void;
 }
 
@@ -126,6 +130,14 @@ export function SceneHud(props: SceneHudProps) {
                 )}
               </>
             )}
+            {props.followHeading && props.deviceHeading !== null && (
+              <MetricPill
+                icon={<Compass className="size-3.5" />}
+                label="Heading"
+                value={`${formatDegrees(props.deviceHeading, 0)} ${compassLabel(props.deviceHeading)}`}
+                compact={props.breakpoint === "mobile"}
+              />
+            )}
           </div>
         </div>
 
@@ -139,6 +151,14 @@ export function SceneHud(props: SceneHudProps) {
           </HudAction>
           <HudAction label="Reset camera" onClick={props.onResetView}>
             <RotateCcw />
+          </HudAction>
+          <HudAction
+            label={props.followHeading ? "Stop following heading" : "Follow device heading"}
+            pressed={props.followHeading}
+            onClick={() => props.onFollowHeading(!props.followHeading)}
+            className="lg:hidden"
+          >
+            <Compass />
           </HudAction>
           <HudAction
             label={props.inspectorOpen ? "Close inspector" : "Open inspector"}
