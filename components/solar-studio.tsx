@@ -395,7 +395,16 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
           inert={view === "davinci" ? undefined : true}
           aria-hidden={view !== "davinci"}
         >
-          <DavinciView active={view === "davinci"} />
+          <DavinciView
+            active={view === "davinci"}
+            arcs={model.arcs}
+            horizon={model.horizon}
+            sun={sun}
+            moon={moon}
+            moonArc={moonModel.arc}
+            showSun={showSun}
+            showMoon={showMoon}
+          />
         </div>
       )}
 

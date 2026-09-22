@@ -1,13 +1,17 @@
+/** Baked Codice Celeste hatch. Density 75, weight 0.6 — no live sliders. */
+export const DAVINCI_HATCH_DENSITY = 75;
+export const DAVINCI_HATCH_WEIGHT = 0.6;
+
 /** Cross-hatch ink on vellum, from the Codice Celeste rendering study. */
 export const davinciVertexShader = `
   varying vec3 vNormal;
   varying vec3 vViewNormal;
-  varying vec3 vWorldPosition;
+  varying vec3 vLocalPosition;
 
   void main() {
     vViewNormal = normalize(normalMatrix * normal);
+    vLocalPosition = position;
     vec4 worldPos = modelMatrix * vec4(position, 1.0);
-    vWorldPosition = worldPos.xyz;
     vNormal = normalize(mat3(modelMatrix) * normal);
     gl_Position = projectionMatrix * viewMatrix * worldPos;
   }
@@ -22,7 +26,7 @@ export const davinciFragmentShader = `
 
   varying vec3 vNormal;
   varying vec3 vViewNormal;
-  varying vec3 vWorldPosition;
+  varying vec3 vLocalPosition;
 
   float strokeMask(float line, float width) {
     float aa = fwidth(line) * 0.75;
@@ -38,7 +42,7 @@ export const davinciFragmentShader = `
     float nDotL = dot(N, L);
     float light = clamp(nDotL * 0.5 + 0.5, 0.0, 1.0);
 
-    vec2 hatchCoords = vWorldPosition.xy * uHatchDensity * 0.15;
+    vec2 hatchCoords = vLocalPosition.xy * uHatchDensity * 0.15;
     float wobble = sin(hatchCoords.y * 3.0 + hatchCoords.x * 2.0) * 0.12 * (uLineWeight * 0.5);
     hatchCoords += wobble;
 
