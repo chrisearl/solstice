@@ -49,6 +49,9 @@ test("selected day builds a sunlit arc and a shadow at 3pm in Orlando", () => {
   const selected = model.arcs.find((arc) => arc.id === "selected");
   assert.ok(selected);
   assert.ok(selected.points.length > 20);
+  assert.ok(selected.underPoints.length > 20);
+  assert.ok(selected.underPoints.some((point) => point.y < -1));
+  assert.ok(selected.points.every((point) => point.y >= -0.05));
   assert.ok(model.times.sunrise);
   assert.ok(model.times.sunset);
   assert.ok(model.times.dayLengthMs && model.times.dayLengthMs > 12 * 3_600_000);

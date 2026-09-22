@@ -62,6 +62,9 @@ export interface SolarArc {
   color: string;
   points: Vec3[];
   closed: boolean;
+  /** Fainter continuation below the horizon, under the disc. */
+  underPoints: Vec3[];
+  underClosed: boolean;
   emphasized: boolean;
   apex: Vec3 | null;
 }
@@ -334,7 +337,7 @@ function samplePath(
   date: Date,
   latitude: number,
   longitude: number,
-): { points: Vec3[]; closed: boolean } {
+): { points: Vec3[]; closed: boolean; underPoints: Vec3[]; underClosed: boolean } {
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth();
   const day = date.getUTCDate();
@@ -357,29 +360,67 @@ function samplePath(
     };
   });
 
-  const points: Vec3[] = [];
+  const above: Vec3[] = [];
+  const belowRuns: Vec3[][] = [];
+  let below: Vec3[] | null = null;
+  const pushBelow = (point: Vec3) => {
+    if (!below) below = [];
+    below.push(point);
+  };
+  const finishBelow = () => {
+    if (below && below.length > 0) belowRuns.push(below);
+    below = null;
+  };
+
   for (let i = 0; i < samples.length; i++) {
     const current = samples[i];
     const previous = samples[i - 1];
-    if (previous && previous.altitude < 0 && current.altitude >= 0) {
-      points.push(horizonPoint(previous, current));
+    const rising = Boolean(previous && previous.altitude < 0 && current.altitude >= 0);
+    const setting = Boolean(previous && previous.altitude >= 0 && current.altitude < 0);
+    const horizon = previous && (rising || setting) ? horizonPoint(previous, current) : null;
+    const point = { x: current.x, y: current.y, z: current.z };
+
+    if (rising && horizon) {
+      pushBelow(horizon);
+      finishBelow();
+      above.push(horizon);
     }
     if (current.altitude >= 0) {
-      points.push({ x: current.x, y: current.y, z: current.z });
-    } else if (current.altitude >= -0.25) {
-      points.push(project(current.azimuth, 0, SKY_RADIUS));
+      above.push(point);
+    } else {
+      if (setting && horizon) {
+        above.push(horizon);
+        pushBelow(horizon);
+      }
+      pushBelow(point);
     }
-    if (previous && previous.altitude >= 0 && current.altitude < 0) {
-      points.push(horizonPoint(previous, current));
-    }
+  }
+  finishBelow();
+
+  const alwaysUp = samples.length > 2 && samples.every((sample) => sample.altitude > 0.4);
+  const alwaysDown = samples.length > 2 && samples.every((sample) => sample.altitude < -0.4);
+  const cleaned = dedupe(above);
+  const points = alwaysUp && cleaned.length > 3 ? cleaned.slice(0, -1) : cleaned;
+
+  let underPoints: Vec3[] = [];
+  let underClosed = false;
+  if (alwaysDown && belowRuns.length > 0) {
+    const loop = dedupe(belowRuns[0]);
+    underPoints = loop.length > 3 ? loop.slice(0, -1) : loop;
+    underClosed = underPoints.length > 3;
+  } else if (
+    belowRuns.length >= 2 &&
+    samples[0].altitude < 0 &&
+    samples[samples.length - 1].altitude < 0
+  ) {
+    const head = belowRuns[0];
+    const tail = belowRuns[belowRuns.length - 1];
+    underPoints = dedupe([...tail, ...head]);
+  } else if (belowRuns[0]) {
+    underPoints = dedupe(belowRuns[0]);
   }
 
-  const cleaned = dedupe(points);
-  const closed = samples.length > 2 && samples.every((sample) => sample.altitude > 0.4);
-  if (closed && cleaned.length > 3) {
-    return { points: cleaned.slice(0, -1), closed: true };
-  }
-  return { points: cleaned, closed: false };
+  return { points, closed: alwaysUp, underPoints, underClosed };
 }
 
 function apexOf(points: Vec3[]): Vec3 | null {
@@ -415,6 +456,8 @@ function makeArc(
     color,
     points: path.points,
     closed: path.closed,
+    underPoints: path.underPoints,
+    underClosed: path.underClosed,
     emphasized,
     apex: apexOf(path.points),
   };

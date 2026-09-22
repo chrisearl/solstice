@@ -258,13 +258,16 @@ function CompassDisc() {
         <cylinderGeometry args={[DISC_RADIUS, DISC_RADIUS * 1.012, 0.16, 96]} />
         <meshStandardMaterial color="#10141c" roughness={0.92} metalness={0.18} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]} renderOrder={2}>
         <circleGeometry args={[DISC_RADIUS, 128]} />
         <meshStandardMaterial
           map={texture}
           roughness={0.86}
           metalness={0.14}
           color="#ffffff"
+          transparent
+          opacity={0.84}
+          depthWrite={false}
         />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
@@ -282,17 +285,38 @@ function CompassDisc() {
 function Gnomon() {
   return (
     <group>
-      <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={5}>
         <circleGeometry args={[0.14, 24]} />
-        <meshStandardMaterial color="#8d7349" metalness={0.55} roughness={0.35} />
+        <meshStandardMaterial
+          color="#8d7349"
+          metalness={0.55}
+          roughness={0.35}
+          transparent
+          opacity={1}
+          depthWrite
+        />
       </mesh>
-      <mesh position={[0, GNOMON_HEIGHT / 2, 0]}>
+      <mesh position={[0, GNOMON_HEIGHT / 2, 0]} renderOrder={5}>
         <cylinderGeometry args={[0.018, 0.03, GNOMON_HEIGHT, 20]} />
-        <meshStandardMaterial color="#e4bb72" metalness={0.72} roughness={0.28} />
+        <meshStandardMaterial
+          color="#e4bb72"
+          metalness={0.72}
+          roughness={0.28}
+          transparent
+          opacity={1}
+          depthWrite
+        />
       </mesh>
-      <mesh position={[0, GNOMON_HEIGHT + 0.01, 0]}>
+      <mesh position={[0, GNOMON_HEIGHT + 0.01, 0]} renderOrder={5}>
         <sphereGeometry args={[0.042, 20, 20]} />
-        <meshStandardMaterial color="#f3ddb0" metalness={0.6} roughness={0.22} />
+        <meshStandardMaterial
+          color="#f3ddb0"
+          metalness={0.6}
+          roughness={0.22}
+          transparent
+          opacity={1}
+          depthWrite
+        />
       </mesh>
     </group>
   );
@@ -308,20 +332,36 @@ function SkyArc({ arc }: { arc: SolarArc }) {
     () => (arc.emphasized ? tubeFrom(arc.points, 0.07, arc.closed) : null),
     [arc.points, arc.emphasized, arc.closed],
   );
+  const under = useMemo(
+    () => tubeFrom(arc.underPoints, arc.emphasized ? 0.011 : 0.006, arc.underClosed),
+    [arc.underPoints, arc.emphasized, arc.underClosed],
+  );
 
   useEffect(() => {
     return () => {
       geometry?.dispose();
       glow?.dispose();
+      under?.dispose();
     };
-  }, [geometry, glow]);
+  }, [geometry, glow, under]);
 
-  if (!geometry) return null;
+  if (!geometry && !under) return null;
 
   return (
     <group>
+      {under && (
+        <mesh geometry={under} renderOrder={1}>
+          <meshBasicMaterial
+            color={arc.color}
+            transparent
+            opacity={arc.emphasized ? 0.28 : 0.16}
+            toneMapped={false}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
       {glow && (
-        <mesh geometry={glow}>
+        <mesh geometry={glow} renderOrder={4}>
           <meshBasicMaterial
             color={arc.color}
             transparent
@@ -331,14 +371,17 @@ function SkyArc({ arc }: { arc: SolarArc }) {
           />
         </mesh>
       )}
-      <mesh geometry={geometry}>
-        <meshBasicMaterial
-          color={arc.color}
-          transparent
-          opacity={arc.emphasized ? 1 : 0.78}
-          toneMapped={false}
-        />
-      </mesh>
+      {geometry && (
+        <mesh geometry={geometry} renderOrder={4}>
+          <meshBasicMaterial
+            color={arc.color}
+            transparent
+            opacity={arc.emphasized ? 1 : 0.78}
+            toneMapped={false}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
       {arc.apex && (
         <Html
           position={[arc.apex.x, arc.apex.y + 0.32, arc.apex.z]}
@@ -430,7 +473,7 @@ function SunBody({ sun }: { sun: SunPlacement }) {
         <meshBasicMaterial color={color} toneMapped={false} />
       </mesh>
       {texture && (
-        <sprite ref={glow} scale={[1.5, 1.5, 1]}>
+        <sprite ref={glow} scale={[1.5, 1.5, 1]} renderOrder={sun.aboveHorizon ? 6 : 1}>
           <spriteMaterial
             map={texture}
             transparent
