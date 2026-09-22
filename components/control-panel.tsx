@@ -50,6 +50,7 @@ interface ControlPanelProps {
   dayCount: number;
   showSun: boolean;
   showMoon: boolean;
+  compactHeader?: boolean;
   onLatText: (value: string) => void;
   onLngText: (value: string) => void;
   onPreset: (lat: number, lng: number) => void;
@@ -69,86 +70,29 @@ export function ControlPanel(props: ControlPanelProps) {
   const lngState = coordinateStatus(props.lngText, -180, 180);
 
   return (
-    <section className="panel-scroll flex max-h-[46dvh] flex-col gap-4 overflow-y-auto rounded-t-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,30,0.88),rgba(8,10,16,0.78))] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl lg:max-h-[calc(100dvh-1.5rem)] lg:rounded-3xl lg:p-5">
-      <header className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-display text-3xl leading-none tracking-tight text-[#f6f1e7]">
-            Solstice
-          </p>
-          <p className="mt-1 text-sm text-white/55">
-            {locationLabel(props.latitude, props.longitude)}
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="border-white/10 bg-white/5 text-white hover:bg-white/10"
-          onClick={props.onResetView}
-          aria-label="Reset camera"
-        >
-          <RotateCcw />
-        </Button>
-      </header>
-
-      <div className="grid grid-cols-2 gap-2 lg:hidden">
-        {props.showSun && (
-          <>
-            <Stat
-              icon={<Compass />}
-              label="Sun azimuth"
-              value={formatDegrees(props.sun.azimuth)}
-              hint={props.sun.aboveHorizon ? "Above horizon" : "Below horizon"}
-            />
-            <Stat
-              icon={<SunMedium />}
-              label="Sun altitude"
-              value={formatDegrees(props.sun.altitude)}
-              hint={props.sun.altitude >= 0 ? "Elevation" : "Depression"}
-            />
-            <Stat
-              icon={<Sunrise />}
-              label="Sunrise"
-              value={riseLabel(props.model, props.longitude, "sunrise")}
-              hint={formatDuration(props.model.times.dayLengthMs)}
-            />
-            <Stat
-              icon={<Sunset />}
-              label="Sunset"
-              value={riseLabel(props.model, props.longitude, "sunset")}
-              hint="Mean solar time"
-            />
-          </>
-        )}
-        {props.showMoon && (
-          <>
-            <Stat
-              icon={<Moon />}
-              label="Moon azimuth"
-              value={formatDegrees(props.moon.azimuth)}
-              hint={props.moon.phaseLabel}
-            />
-            <Stat
-              icon={<Moon />}
-              label="Moon altitude"
-              value={formatDegrees(props.moon.altitude)}
-              hint={props.moon.aboveHorizon ? "Above horizon" : "Below horizon"}
-            />
-            <Stat
-              icon={<Moon />}
-              label="Moonrise"
-              value={moonEventLabel(props.moonModel, props.longitude, "rise")}
-              hint={`${Math.round(props.moon.fraction * 100)}% lit`}
-            />
-            <Stat
-              icon={<Moon />}
-              label="Moonset"
-              value={moonEventLabel(props.moonModel, props.longitude, "set")}
-              hint="Mean solar time"
-            />
-          </>
-        )}
-      </div>
+    <section className="flex flex-col gap-4">
+      {!props.compactHeader && (
+        <header className="flex items-start justify-between gap-3">
+          <div>
+            <p className="font-display text-3xl leading-none tracking-tight text-[#f6f1e7]">
+              Solstice
+            </p>
+            <p className="mt-1 text-sm text-white/55">
+              {locationLabel(props.latitude, props.longitude)}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+            onClick={props.onResetView}
+            aria-label="Reset camera"
+          >
+            <RotateCcw />
+          </Button>
+        </header>
+      )}
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
@@ -161,7 +105,7 @@ export function ControlPanel(props: ControlPanelProps) {
             Orlando
           </button>
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {PRESETS.map((preset) => {
             const active =
               Math.abs(preset.lat - props.latitude) < 1e-4 &&
@@ -172,11 +116,11 @@ export function ControlPanel(props: ControlPanelProps) {
                 type="button"
                 size="xs"
                 variant={active ? "default" : "outline"}
-                className={
+                className={`shrink-0 ${
                   active
                     ? "bg-[#f0b429] text-[#1b1406] hover:bg-[#f0b429]/90"
                     : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10"
-                }
+                }`}
                 onClick={() => props.onPreset(preset.lat, preset.lng)}
               >
                 {preset.name}
@@ -330,7 +274,7 @@ export function StatRail({
   showMoon: boolean;
 }) {
   return (
-    <aside className="hidden w-[220px] flex-col gap-2 lg:flex">
+    <aside className="pointer-events-auto hidden w-[min(220px,calc(100vw-28rem))] flex-col gap-2 lg:flex 2xl:w-[240px]">
       {showSun && (
         <>
           <Stat

@@ -24,6 +24,12 @@ export const metadata: Metadata = {
     "Interactive 3D view of the sun’s daily and seasonal path over any latitude and longitude.",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
