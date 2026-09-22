@@ -1,8 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { PanelLeftOpen } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ControlPanel, StatRail } from "@/components/control-panel";
+import { InspectorPanel } from "@/components/inspector-panel";
+import { SceneHud } from "@/components/scene-hud";
+import { useInspectorLayout, useLayout } from "@/hooks/use-layout";
 import {
   ORLANDO,
   buildMoonModel,
@@ -39,6 +43,18 @@ export function SolarStudio() {
   const [resetSignal, setResetSignal] = useState(0);
   const [showSun, setShowSun] = useState(true);
   const [showMoon, setShowMoon] = useState(true);
+
+  const {
+    breakpoint,
+    inspectorState,
+    inspectorPinned,
+    inspectorOpen,
+    setInspectorState,
+    toggleInspector,
+    closeInspector,
+  } = useInspectorLayout();
+
+  const { insets } = useLayout(inspectorState, inspectorPinned);
 
   useEffect(() => {
     if (!playing) return;
@@ -113,9 +129,63 @@ export function SolarStudio() {
     setLongitude(lng);
   };
 
+  const sharedPanelProps = {
+    model,
+    moonModel,
+    sun,
+    moon,
+    latitude,
+    longitude,
+    latText,
+    lngText,
+    minutes,
+    playing,
+    dayIndex,
+    dayCount: daysInYear(year),
+    showSun,
+    showMoon,
+    onLatText: applyLatitude,
+    onLngText: applyLongitude,
+    onPreset: applyPreset,
+    onDayIndex: setDayIndex,
+    onDate: (iso: string) => {
+      const next = parseIsoDate(iso);
+      if (!next) return;
+      setYear(next.year);
+      setDayIndex(next.dayIndex);
+    },
+    onMinutes: (value: number) => {
+      setPlaying(false);
+      setMinutes(value);
+    },
+    onPlaying: setPlaying,
+    onJump: (kind: "summer" | "equinox" | "winter") => {
+      const seasons = seasonalDates(year, latitude);
+      const date = seasons[kind];
+      setYear(date.getUTCFullYear());
+      setDayIndex(dayIndexFromUtcDate(date));
+    },
+    onShowSun: setShowSun,
+    onShowMoon: setShowMoon,
+    onResetView: () => setResetSignal((value) => value + 1),
+    onResetPlace: () => {
+      applyPreset(ORLANDO.lat, ORLANDO.lng);
+      const today = dayIndexFromLocalDate(new Date());
+      setYear(today.year);
+      setDayIndex(today.dayIndex);
+      setMinutes(15 * 60);
+      setPlaying(false);
+      setShowSun(true);
+      setShowMoon(true);
+    },
+  };
+
+  const showDesktopRail = breakpoint === "desktop" || breakpoint === "large";
+  const showPinnedInspector = showDesktopRail && inspectorPinned;
+
   return (
-    <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-[#07080d] text-[#f3efe6] lg:block">
-      <div className="relative min-h-0 flex-1 lg:absolute lg:inset-0">
+    <div className="relative h-dvh w-full overflow-hidden bg-[#07080d] text-[#f3efe6]">
+      <div className="absolute inset-0">
         <SolarScene
           arcs={model.arcs}
           sun={sun}
@@ -124,84 +194,70 @@ export function SolarStudio() {
           showSun={showSun}
           showMoon={showMoon}
           resetSignal={resetSignal}
+          layoutInsets={insets}
         />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.42)_100%)]" />
       </div>
 
-      <div className="z-10 w-full shrink-0 lg:pointer-events-none lg:absolute lg:inset-0 lg:flex lg:flex-row lg:items-start lg:justify-between lg:p-3">
-        <div className="pointer-events-auto w-full lg:w-[360px]">
-          <ControlPanel
+      <SceneHud
+        breakpoint={breakpoint}
+        model={model}
+        moonModel={moonModel}
+        sun={sun}
+        moon={moon}
+        latitude={latitude}
+        longitude={longitude}
+        minutes={minutes}
+        playing={playing}
+        showSun={showSun}
+        showMoon={showMoon}
+        inspectorOpen={inspectorOpen}
+        onPlaying={setPlaying}
+        onResetView={() => setResetSignal((value) => value + 1)}
+        onToggleInspector={toggleInspector}
+      />
+
+      {showPinnedInspector ? (
+        <aside className="pointer-events-auto fixed top-3 bottom-3 left-3 z-30 hidden w-[min(360px,calc(100vw-28rem))] flex-col rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,30,0.92),rgba(8,10,16,0.86))] shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl lg:flex 2xl:w-[min(400px,calc(100vw-32rem))]">
+          <div className="panel-scroll min-h-0 flex-1 overflow-y-auto p-5">
+            <ControlPanel {...sharedPanelProps} compactHeader />
+          </div>
+        </aside>
+      ) : (
+        <InspectorPanel
+          breakpoint={breakpoint}
+          state={inspectorState}
+          {...sharedPanelProps}
+          onClose={closeInspector}
+          onPeek={() => setInspectorState("peek")}
+          onOpen={() => setInspectorState("open")}
+        />
+      )}
+
+      {showDesktopRail && (
+        <div className="pointer-events-none absolute top-3 right-3 bottom-3 z-20 hidden lg:block">
+          <StatRail
             model={model}
             moonModel={moonModel}
             sun={sun}
             moon={moon}
-            latitude={latitude}
             longitude={longitude}
-            latText={latText}
-            lngText={lngText}
-            minutes={minutes}
-            playing={playing}
-            dayIndex={dayIndex}
-            dayCount={daysInYear(year)}
             showSun={showSun}
             showMoon={showMoon}
-            onLatText={applyLatitude}
-            onLngText={applyLongitude}
-            onPreset={applyPreset}
-            onDayIndex={setDayIndex}
-            onDate={(iso) => {
-              const next = parseIsoDate(iso);
-              if (!next) return;
-              setYear(next.year);
-              setDayIndex(next.dayIndex);
-            }}
-            onMinutes={(value) => {
-              setPlaying(false);
-              setMinutes(value);
-            }}
-            onPlaying={setPlaying}
-            onJump={(kind) => {
-              const seasons = seasonalDates(year, latitude);
-              const date = seasons[kind];
-              setYear(date.getUTCFullYear());
-              setDayIndex(dayIndexFromUtcDate(date));
-            }}
-            onShowSun={setShowSun}
-            onShowMoon={setShowMoon}
-            onResetView={() => setResetSignal((value) => value + 1)}
-            onResetPlace={() => {
-              applyPreset(ORLANDO.lat, ORLANDO.lng);
-              const today = dayIndexFromLocalDate(new Date());
-              setYear(today.year);
-              setDayIndex(today.dayIndex);
-              setMinutes(15 * 60);
-              setPlaying(false);
-              setShowSun(true);
-              setShowMoon(true);
-            }}
           />
         </div>
+      )}
 
-        <div className="pointer-events-none absolute top-3 right-3 hidden lg:block">
-          <div className="pointer-events-auto">
-            <StatRail
-              model={model}
-              moonModel={moonModel}
-              sun={sun}
-              moon={moon}
-              longitude={longitude}
-              showSun={showSun}
-              showMoon={showMoon}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="pointer-events-none absolute top-3 left-1/2 z-10 hidden -translate-x-1/2 rounded-full border border-white/10 bg-black/35 px-4 py-1.5 text-center backdrop-blur-md lg:block">
-        <p className="text-[11px] tracking-[0.18em] text-white/50 uppercase">
-          {locationLabel(latitude, longitude)}
-        </p>
-      </div>
+      {!showPinnedInspector && (breakpoint === "desktop" || breakpoint === "large") && inspectorState === "closed" && (
+        <button
+          type="button"
+          aria-label="Open inspector"
+          onClick={() => setInspectorState("open")}
+          className="pointer-events-auto fixed top-1/2 left-3 z-30 hidden size-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/45 text-white backdrop-blur-md hover:bg-white/10 lg:flex"
+        >
+          <PanelLeftOpen className="size-5" />
+        </button>
+      )}
 
       <p className="sr-only">
         Three-dimensional chart of the sky for {locationLabel(latitude, longitude)}. Sun azimuth{" "}
@@ -217,7 +273,7 @@ function ScenePlaceholder() {
   return (
     <div className="flex h-full w-full items-center justify-center bg-[#07080d]">
       <div className="text-center">
-        <div className="mx-auto size-10 animate-pulse rounded-full bg-[#f0b429] shadow-[0_0_32px_rgba(240,180,41,0.8)]" />
+        <div className="mx-auto size-10 animate-pulse rounded-full bg-[#f0b429] shadow-[0_0_32px_rgba(240,180,41,0.8)] motion-reduce:animate-none" />
         <p className="mt-4 text-sm tracking-[0.18em] text-white/50 uppercase">
           Charting the sky
         </p>
