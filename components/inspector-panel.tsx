@@ -4,7 +4,14 @@ import { ChevronDown, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ControlPanel } from "@/components/control-panel";
 import type { Breakpoint, InspectorState } from "@/lib/layout-insets";
-import type { MoonModel, MoonPlacement, SolarModel, SunPlacement } from "@/lib/solar";
+import type {
+  AltitudeSample,
+  MoonModel,
+  MoonPlacement,
+  SeasonJump,
+  SolarModel,
+  SunPlacement,
+} from "@/lib/solar";
 
 interface InspectorPanelProps {
   breakpoint: Breakpoint;
@@ -26,14 +33,20 @@ interface InspectorPanelProps {
   followHeading: boolean;
   orientationSupported: boolean;
   orientationHint?: string;
+  samples: AltitudeSample[];
+  objectHeight: number;
+  locating: boolean;
+  geoError: string | null;
   onLatText: (value: string) => void;
   onLngText: (value: string) => void;
   onPreset: (lat: number, lng: number) => void;
+  onLocate: () => void;
   onDayIndex: (value: number) => void;
   onDate: (iso: string) => void;
   onMinutes: (value: number) => void;
+  onObjectHeight: (value: number) => void;
   onPlaying: (value: boolean) => void;
-  onJump: (kind: "summer" | "equinox" | "winter") => void;
+  onJump: (kind: SeasonJump) => void;
   onShowSun: (value: boolean) => void;
   onShowMoon: (value: boolean) => void;
   onFollowHeading: (value: boolean) => void;
@@ -66,12 +79,18 @@ export function InspectorPanel(props: InspectorPanelProps) {
     followHeading: props.followHeading,
     orientationSupported: props.orientationSupported,
     orientationHint: props.orientationHint,
+    samples: props.samples,
+    objectHeight: props.objectHeight,
+    locating: props.locating,
+    geoError: props.geoError,
     onLatText: props.onLatText,
     onLngText: props.onLngText,
     onPreset: props.onPreset,
+    onLocate: props.onLocate,
     onDayIndex: props.onDayIndex,
     onDate: props.onDate,
     onMinutes: props.onMinutes,
+    onObjectHeight: props.onObjectHeight,
     onPlaying: props.onPlaying,
     onJump: props.onJump,
     onShowSun: props.onShowSun,
