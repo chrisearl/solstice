@@ -9,25 +9,28 @@ The default place is Orlando, Florida (28.5383, −81.3792).
 ## Run locally
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Open the URL Next.js prints, usually http://localhost:3000.
 
 ```bash
-npm run verify   # solar geometry checks
-npm run build    # production build
+pnpm verify   # solar geometry checks
+pnpm build    # production build
 ```
 
 ## Controls
 
-- **Location** — latitude and longitude, or a city preset
-- **Date** — slider or calendar, plus jumps to the solstices and equinox
-- **Time** — 24-hour slider, a clock field, and play / pause (space bar)
+- **Location** — latitude and longitude, a city preset, or this device’s location
+- **Date** — slider or calendar, plus jumps to the solstices and both equinoxes
+- **Time** — 24-hour slider colored by sunlight phase, a clock field, and play / pause (space bar). An altitude trace sits under the slider.
+- **Sun events** — dawn, sunrise, solar noon, sunset, and dusk seek the clock
+- **Shadow** — length in meters for an object of a chosen height. The gnomon shadow in the scene stays a visual.
+- **Link** — the address bar keeps place, date, mean solar time, and object height
 - **Orbit** — drag to rotate, scroll to zoom, right-drag to pan
 
-Times are mean solar time for the chosen longitude, so 12:00 stays near the sun’s highest point rather than a political time zone.
+Times on the clock and on the sun events are mean solar time for the chosen longitude, so 12:00 stays near the sun’s highest point. Civil time is the local clock for that place, shown beside mean solar time.
 
 ## Deploy
 

@@ -11,6 +11,7 @@ import {
   useMemo,
   useRef,
 } from "react";
+import type { Group } from "three";
 import * as THREE from "three";
 import { createCompassTexture } from "@/lib/compass-texture";
 import type { LayoutInsets } from "@/lib/layout-insets";
@@ -18,6 +19,9 @@ import {
   DISC_RADIUS,
   GNOMON_HEIGHT,
   SKY_RADIUS,
+  project,
+  type AzimuthFan,
+  type HorizonMarks,
   type MoonPlacement,
   type SkyPath,
   type SolarArc,
@@ -27,23 +31,31 @@ import {
 
 interface SolarSceneProps {
   arcs: SolarArc[];
+  horizon: HorizonMarks;
   sun: SunPlacement;
   moon: MoonPlacement;
   moonArc: SkyPath;
   showSun: boolean;
   showMoon: boolean;
+  followHeading: boolean;
+  deviceHeading: number | null;
   resetSignal: number;
   layoutInsets: LayoutInsets;
   active?: boolean;
 }
 
+const DEG = Math.PI / 180;
+
 export default function SolarScene({
   arcs,
+  horizon,
   sun,
   moon,
   moonArc,
   showSun,
   showMoon,
+  followHeading,
+  deviceHeading,
   resetSignal,
   layoutInsets,
   active = true,
@@ -61,11 +73,14 @@ export default function SolarScene({
       <Suspense fallback={null}>
         <SceneContent
           arcs={arcs}
+          horizon={horizon}
           sun={sun}
           moon={moon}
           moonArc={moonArc}
           showSun={showSun}
           showMoon={showMoon}
+          followHeading={followHeading}
+          deviceHeading={deviceHeading}
           resetSignal={resetSignal}
           layoutInsets={layoutInsets}
         />
@@ -76,67 +91,93 @@ export default function SolarScene({
 
 function SceneContent({
   arcs,
+  horizon,
   sun,
   moon,
   moonArc,
   showSun,
   showMoon,
+  followHeading,
+  deviceHeading,
   resetSignal,
   layoutInsets,
 }: SolarSceneProps) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
+  const headingGroup = useRef<Group>(null);
+
+  useEffect(() => {
+    if (!followHeading) return;
+    const orbit = controls.current;
+    if (!orbit) return;
+    orbit.setAzimuthalAngle(0);
+    orbit.update();
+  }, [followHeading]);
+
+  useFrame(() => {
+    const group = headingGroup.current;
+    if (!group) return;
+    if (followHeading && deviceHeading !== null) {
+      group.rotation.y = -deviceHeading * DEG;
+      return;
+    }
+    group.rotation.y = 0;
+  });
 
   return (
     <>
       <color attach="background" args={["#07080d"]} />
-      <SkyDome />
-      <Stars
-        radius={26}
-        depth={14}
-        count={1400}
-        factor={2.4}
-        saturation={0}
-        fade
-        speed={0.25}
-      />
-      <ambientLight intensity={0.28} />
-      <hemisphereLight args={["#24324a", "#090b10", 0.55]} />
-      <directionalLight position={[6, 8, 3]} intensity={0.4} color="#d5e2f5" />
-      {showSun && sun.altitude > -2 && (
-        <pointLight
-          position={[sun.position.x, Math.max(sun.position.y, 0.2), sun.position.z]}
-          intensity={sun.aboveHorizon ? 18 : 2}
-          distance={28}
-          decay={2}
-          color="#ffc98a"
+      <group ref={headingGroup}>
+        <SkyDome />
+        <Stars
+          radius={26}
+          depth={14}
+          count={1400}
+          factor={2.4}
+          saturation={0}
+          fade
+          speed={0.25}
         />
-      )}
-      {showMoon && moon.aboveHorizon && (
-        <pointLight
-          position={[moon.position.x, Math.max(moon.position.y, 0.2), moon.position.z]}
-          intensity={4.5 * moon.fraction}
-          distance={22}
-          decay={2}
-          color="#d8e4f4"
-        />
-      )}
-      <CompassDisc />
-      <Gnomon />
-      {showSun &&
-        arcs.map((arc) => (
-          <SkyArc key={arc.id} arc={arc} />
-        ))}
-      {showMoon && <SkyArc arc={moonArc} />}
-      {showSun && <SunBody sun={sun} />}
-      {showSun && <ShadowRig sun={sun} />}
-      {showSun && <Bearing sun={sun} color="#ffd78a" />}
-      {showMoon && <MoonBody moon={moon} />}
-      {showMoon && <Bearing sun={moon} color="#d8e4f4" />}
+        <ambientLight intensity={0.28} />
+        <hemisphereLight args={["#24324a", "#090b10", 0.55]} />
+        <directionalLight position={[6, 8, 3]} intensity={0.4} color="#d5e2f5" />
+        {showSun && sun.altitude > -2 && (
+          <pointLight
+            position={[sun.position.x, Math.max(sun.position.y, 0.2), sun.position.z]}
+            intensity={sun.aboveHorizon ? 18 : 2}
+            distance={28}
+            decay={2}
+            color="#ffc98a"
+          />
+        )}
+        {showMoon && moon.aboveHorizon && (
+          <pointLight
+            position={[moon.position.x, Math.max(moon.position.y, 0.2), moon.position.z]}
+            intensity={4.5 * moon.fraction}
+            distance={22}
+            decay={2}
+            color="#d8e4f4"
+          />
+        )}
+        <CompassDisc />
+        {showSun && <HorizonMarks horizon={horizon} />}
+        <Gnomon />
+        {showSun &&
+          arcs.map((arc) => (
+            <SkyArc key={arc.id} arc={arc} />
+          ))}
+        {showMoon && <SkyArc arc={moonArc} />}
+        {showSun && <SunBody sun={sun} />}
+        {showSun && <ShadowRig sun={sun} />}
+        {showSun && <Bearing sun={sun} color="#ffd78a" />}
+        {showMoon && <MoonBody moon={moon} />}
+        {showMoon && <Bearing sun={moon} color="#d8e4f4" />}
+      </group>
       <OrbitControls
         ref={controls}
         enableDamping
         dampingFactor={0.08}
         enablePan
+        enableRotate={!followHeading}
         minDistance={3.4}
         maxDistance={48}
         minPolarAngle={0.12}
@@ -290,6 +331,73 @@ function SkyDome() {
   return (
     <mesh material={material}>
       <sphereGeometry args={[48, 48, 32]} />
+    </mesh>
+  );
+}
+
+function HorizonMarks({ horizon }: { horizon: HorizonMarks }) {
+  return (
+    <group>
+      {horizon.riseFan && <AzimuthFanMesh fan={horizon.riseFan} />}
+      {horizon.setFan && <AzimuthFanMesh fan={horizon.setFan} />}
+      {horizon.sunriseAzimuth != null && <AzimuthTick azimuth={horizon.sunriseAzimuth} />}
+      {horizon.sunsetAzimuth != null && <AzimuthTick azimuth={horizon.sunsetAzimuth} />}
+    </group>
+  );
+}
+
+function AzimuthFanMesh({ fan }: { fan: AzimuthFan }) {
+  const geometry = useMemo(() => {
+    const inner = DISC_RADIUS * 0.72;
+    const outer = DISC_RADIUS * 0.9;
+    const y = 0.035;
+    const steps = Math.max(8, Math.ceil(fan.sweep / 3));
+    const positions: number[] = [];
+    const indices: number[] = [];
+    for (let i = 0; i <= steps; i++) {
+      const azimuth = fan.start + (fan.sweep * i) / steps;
+      const a = project(azimuth, 0, inner);
+      const b = project(azimuth, 0, outer);
+      positions.push(a.x, y, a.z, b.x, y, b.z);
+    }
+    for (let i = 0; i < steps; i++) {
+      const base = i * 2;
+      indices.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
+    }
+    const mesh = new THREE.BufferGeometry();
+    mesh.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    mesh.setIndex(indices);
+    return mesh;
+  }, [fan.start, fan.sweep]);
+
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
+  return (
+    <mesh geometry={geometry} renderOrder={3}>
+      <meshBasicMaterial
+        color="#ffe38a"
+        transparent
+        opacity={0.18}
+        depthWrite={false}
+        side={THREE.DoubleSide}
+        toneMapped={false}
+      />
+    </mesh>
+  );
+}
+
+function AzimuthTick({ azimuth }: { azimuth: number }) {
+  const inner = project(azimuth, 0, SKY_RADIUS * 0.88);
+  const outer = project(azimuth, 0, SKY_RADIUS * 0.99);
+  const length = Math.hypot(outer.x - inner.x, outer.z - inner.z);
+  return (
+    <mesh
+      position={[(inner.x + outer.x) / 2, 0.045, (inner.z + outer.z) / 2]}
+      rotation={[0, (azimuth * Math.PI) / 180, 0]}
+      renderOrder={3}
+    >
+      <boxGeometry args={[0.03, 0.012, Math.max(length, 0.02)]} />
+      <meshBasicMaterial color="#ffe38a" toneMapped={false} />
     </mesh>
   );
 }
