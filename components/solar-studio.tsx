@@ -7,8 +7,11 @@ import { ControlPanel, StatRail } from "@/components/control-panel";
 import { InspectorPanel } from "@/components/inspector-panel";
 import { SceneHud } from "@/components/scene-hud";
 import { useInspectorLayout, useLayout } from "@/hooks/use-layout";
+import type { ParsedView } from "@/lib/view-query";
+import { serializeViewQuery } from "@/lib/view-query";
 import {
   ORLANDO,
+  altitudeSamples,
   buildMoonModel,
   buildSolarModel,
   coordinateStatus,
@@ -20,6 +23,7 @@ import {
   placeMoon,
   placeSun,
   seasonalDates,
+  type SeasonJump,
 } from "@/lib/solar";
 
 const SolarScene = dynamic(() => import("@/components/solar-scene"), {
@@ -31,15 +35,19 @@ function todayCalendar() {
   return dayIndexFromLocalDate(new Date());
 }
 
-export function SolarStudio() {
-  const [year, setYear] = useState(() => todayCalendar().year);
-  const [dayIndex, setDayIndex] = useState(() => todayCalendar().dayIndex);
-  const [minutes, setMinutes] = useState(15 * 60);
+export function SolarStudio({ initial }: { initial?: ParsedView }) {
+  const today = todayCalendar();
+  const [year, setYear] = useState(() => initial?.year ?? today.year);
+  const [dayIndex, setDayIndex] = useState(() => initial?.dayIndex ?? today.dayIndex);
+  const [minutes, setMinutes] = useState(initial?.minutes ?? 15 * 60);
   const [playing, setPlaying] = useState(false);
-  const [latText, setLatText] = useState(String(ORLANDO.lat));
-  const [lngText, setLngText] = useState(String(ORLANDO.lng));
-  const [latitude, setLatitude] = useState(ORLANDO.lat);
-  const [longitude, setLongitude] = useState(ORLANDO.lng);
+  const [latText, setLatText] = useState(String(initial?.latitude ?? ORLANDO.lat));
+  const [lngText, setLngText] = useState(String(initial?.longitude ?? ORLANDO.lng));
+  const [latitude, setLatitude] = useState(initial?.latitude ?? ORLANDO.lat);
+  const [longitude, setLongitude] = useState(initial?.longitude ?? ORLANDO.lng);
+  const [objectHeight, setObjectHeight] = useState(initial?.objectHeight ?? 1);
+  const [locating, setLocating] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
   const [resetSignal, setResetSignal] = useState(0);
   const [showSun, setShowSun] = useState(true);
   const [showMoon, setShowMoon] = useState(true);
@@ -108,6 +116,35 @@ export function SolarStudio() {
     [model.date, minutes, latitude, longitude],
   );
 
+  const samples = useMemo(
+    () => altitudeSamples(model.date, latitude, longitude),
+    [model.date, latitude, longitude],
+  );
+
+  const roundedMinute = ((Math.round(minutes) % 1440) + 1440) % 1440;
+
+  useEffect(() => {
+    const write = () => {
+      const query = serializeViewQuery({
+        latitude,
+        longitude,
+        date: model.date,
+        minutes: roundedMinute,
+        objectHeight,
+      });
+      const next = `?${query}`;
+      if (window.location.search !== next) {
+        window.history.replaceState(null, "", next);
+      }
+    };
+    if (playing) {
+      write();
+      const id = window.setInterval(write, 250);
+      return () => window.clearInterval(id);
+    }
+    write();
+  }, [playing, latitude, longitude, model.date, roundedMinute, objectHeight]);
+
   const applyLatitude = (value: string) => {
     setLatText(value);
     if (coordinateStatus(value, -90, 90) === "valid") {
@@ -127,6 +164,33 @@ export function SolarStudio() {
     setLngText(String(lng));
     setLatitude(lat);
     setLongitude(lng);
+    setGeoError(null);
+  };
+
+  const locate = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGeoError("Location is unavailable in this browser.");
+      return;
+    }
+    setLocating(true);
+    setGeoError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocating(false);
+        applyPreset(position.coords.latitude, position.coords.longitude);
+      },
+      (error) => {
+        setLocating(false);
+        if (error.code === error.PERMISSION_DENIED) {
+          setGeoError("Location permission was denied.");
+        } else if (error.code === error.TIMEOUT) {
+          setGeoError("Location request timed out.");
+        } else {
+          setGeoError("This location is unavailable.");
+        }
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
+    );
   };
 
   const sharedPanelProps = {
@@ -144,9 +208,14 @@ export function SolarStudio() {
     dayCount: daysInYear(year),
     showSun,
     showMoon,
+    samples,
+    objectHeight,
+    locating,
+    geoError,
     onLatText: applyLatitude,
     onLngText: applyLongitude,
     onPreset: applyPreset,
+    onLocate: locate,
     onDayIndex: setDayIndex,
     onDate: (iso: string) => {
       const next = parseIsoDate(iso);
@@ -158,9 +227,13 @@ export function SolarStudio() {
       setPlaying(false);
       setMinutes(value);
     },
+    onObjectHeight: (value: number) => {
+      if (!Number.isFinite(value)) return;
+      setObjectHeight(Math.min(100, Math.max(0.1, value)));
+    },
     onPlaying: setPlaying,
-    onJump: (kind: "summer" | "equinox" | "winter") => {
-      const seasons = seasonalDates(year, latitude);
+    onJump: (kind: SeasonJump) => {
+      const seasons = seasonalDates(year, latitude, longitude);
       const date = seasons[kind];
       setYear(date.getUTCFullYear());
       setDayIndex(dayIndexFromUtcDate(date));
@@ -174,7 +247,9 @@ export function SolarStudio() {
       setYear(today.year);
       setDayIndex(today.dayIndex);
       setMinutes(15 * 60);
+      setObjectHeight(1);
       setPlaying(false);
+      setGeoError(null);
       setShowSun(true);
       setShowMoon(true);
     },
@@ -188,6 +263,7 @@ export function SolarStudio() {
       <div className="absolute inset-0">
         <SolarScene
           arcs={model.arcs}
+          horizon={model.horizon}
           sun={sun}
           moon={moon}
           moonArc={moonModel.arc}
@@ -212,6 +288,10 @@ export function SolarStudio() {
         showSun={showSun}
         showMoon={showMoon}
         inspectorOpen={inspectorOpen}
+        onMinutes={(value) => {
+          setPlaying(false);
+          setMinutes(value);
+        }}
         onPlaying={setPlaying}
         onResetView={() => setResetSignal((value) => value + 1)}
         onToggleInspector={toggleInspector}
@@ -244,6 +324,11 @@ export function SolarStudio() {
             longitude={longitude}
             showSun={showSun}
             showMoon={showMoon}
+            objectHeight={objectHeight}
+            onMinutes={(value) => {
+              setPlaying(false);
+              setMinutes(value);
+            }}
           />
         </div>
       )}

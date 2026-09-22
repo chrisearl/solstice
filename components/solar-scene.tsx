@@ -18,6 +18,9 @@ import {
   DISC_RADIUS,
   GNOMON_HEIGHT,
   SKY_RADIUS,
+  project,
+  type AzimuthFan,
+  type HorizonMarks,
   type MoonPlacement,
   type SkyPath,
   type SolarArc,
@@ -27,6 +30,7 @@ import {
 
 interface SolarSceneProps {
   arcs: SolarArc[];
+  horizon: HorizonMarks;
   sun: SunPlacement;
   moon: MoonPlacement;
   moonArc: SkyPath;
@@ -38,6 +42,7 @@ interface SolarSceneProps {
 
 export default function SolarScene({
   arcs,
+  horizon,
   sun,
   moon,
   moonArc,
@@ -58,6 +63,7 @@ export default function SolarScene({
       <Suspense fallback={null}>
         <SceneContent
           arcs={arcs}
+          horizon={horizon}
           sun={sun}
           moon={moon}
           moonArc={moonArc}
@@ -73,6 +79,7 @@ export default function SolarScene({
 
 function SceneContent({
   arcs,
+  horizon,
   sun,
   moon,
   moonArc,
@@ -118,6 +125,7 @@ function SceneContent({
         />
       )}
       <CompassDisc />
+      {showSun && <HorizonMarks horizon={horizon} />}
       <Gnomon />
       {showSun &&
         arcs.map((arc) => (
@@ -287,6 +295,73 @@ function SkyDome() {
   return (
     <mesh material={material}>
       <sphereGeometry args={[48, 48, 32]} />
+    </mesh>
+  );
+}
+
+function HorizonMarks({ horizon }: { horizon: HorizonMarks }) {
+  return (
+    <group>
+      {horizon.riseFan && <AzimuthFanMesh fan={horizon.riseFan} />}
+      {horizon.setFan && <AzimuthFanMesh fan={horizon.setFan} />}
+      {horizon.sunriseAzimuth != null && <AzimuthTick azimuth={horizon.sunriseAzimuth} />}
+      {horizon.sunsetAzimuth != null && <AzimuthTick azimuth={horizon.sunsetAzimuth} />}
+    </group>
+  );
+}
+
+function AzimuthFanMesh({ fan }: { fan: AzimuthFan }) {
+  const geometry = useMemo(() => {
+    const inner = DISC_RADIUS * 0.72;
+    const outer = DISC_RADIUS * 0.9;
+    const y = 0.035;
+    const steps = Math.max(8, Math.ceil(fan.sweep / 3));
+    const positions: number[] = [];
+    const indices: number[] = [];
+    for (let i = 0; i <= steps; i++) {
+      const azimuth = fan.start + (fan.sweep * i) / steps;
+      const a = project(azimuth, 0, inner);
+      const b = project(azimuth, 0, outer);
+      positions.push(a.x, y, a.z, b.x, y, b.z);
+    }
+    for (let i = 0; i < steps; i++) {
+      const base = i * 2;
+      indices.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
+    }
+    const mesh = new THREE.BufferGeometry();
+    mesh.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    mesh.setIndex(indices);
+    return mesh;
+  }, [fan.start, fan.sweep]);
+
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
+  return (
+    <mesh geometry={geometry} renderOrder={3}>
+      <meshBasicMaterial
+        color="#ffe38a"
+        transparent
+        opacity={0.18}
+        depthWrite={false}
+        side={THREE.DoubleSide}
+        toneMapped={false}
+      />
+    </mesh>
+  );
+}
+
+function AzimuthTick({ azimuth }: { azimuth: number }) {
+  const inner = project(azimuth, 0, SKY_RADIUS * 0.88);
+  const outer = project(azimuth, 0, SKY_RADIUS * 0.99);
+  const length = Math.hypot(outer.x - inner.x, outer.z - inner.z);
+  return (
+    <mesh
+      position={[(inner.x + outer.x) / 2, 0.045, (inner.z + outer.z) / 2]}
+      rotation={[0, (azimuth * Math.PI) / 180, 0]}
+      renderOrder={3}
+    >
+      <boxGeometry args={[0.03, 0.012, Math.max(length, 0.02)]} />
+      <meshBasicMaterial color="#ffe38a" toneMapped={false} />
     </mesh>
   );
 }

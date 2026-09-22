@@ -5,10 +5,14 @@ import {
   getMoonTimes,
   getPosition,
   getTimes,
+  times as sunTimeConfig,
 } from "suncalc";
+import { seasonInstants } from "./seasons.ts";
 
 /** Blue hour boundaries at −4° below the horizon (not included in stock SunCalc). */
-addTime(-4, "blueHourEnd", "blueHour");
+if (!sunTimeConfig.some((row) => row[1] === "blueHourEnd")) {
+  addTime(-4, "blueHourEnd", "blueHour");
+}
 
 /** Ground disc radius in scene units. */
 export const DISC_RADIUS = 5.2;
@@ -117,11 +121,32 @@ export interface SolarDayTimes {
   blueHour: Date | null;
 }
 
+export interface AzimuthFan {
+  start: number;
+  sweep: number;
+}
+
+export interface HorizonMarks {
+  sunriseAzimuth: number | null;
+  sunsetAzimuth: number | null;
+  riseFan: AzimuthFan | null;
+  setFan: AzimuthFan | null;
+}
+
+export interface AltitudeSample {
+  minute: number;
+  sunAltitude: number;
+  moonAltitude: number;
+}
+
+export type SeasonJump = "summer" | "march" | "september" | "winter";
+
 export interface SolarModel {
   date: Date;
   arcs: SolarArc[];
   note: string | null;
   times: SolarDayTimes;
+  horizon: HorizonMarks;
 }
 
 export interface SunPlacement {
@@ -329,6 +354,10 @@ export function compassLabel(azimuth: number): string {
   return CARDINALS[Math.round(wrapped / 22.5) % 16];
 }
 
+export function formatAzimuth(azimuth: number): string {
+  return `${formatDegrees(azimuth)} ${compassLabel(azimuth)}`;
+}
+
 export function coordinateStatus(
   value: string,
   min: number,
@@ -368,15 +397,24 @@ export function locationLabel(lat: number, lng: number): string {
   return `${Math.abs(lat).toFixed(2)}° ${ns}, ${Math.abs(lng).toFixed(2)}° ${ew}`;
 }
 
-export function seasonalDates(year: number, latitude: number) {
-  const june = new Date(Date.UTC(year, 5, 21));
-  const december = new Date(Date.UTC(year, 11, 21));
-  const march = new Date(Date.UTC(year, 2, 20));
+function calendarDateAtLongitude(instant: Date, longitude: number): Date {
+  const offsetMs = (longitude / 15) * 3_600_000;
+  const local = new Date(instant.getTime() + offsetMs);
+  return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()));
+}
+
+export function seasonalDates(year: number, latitude: number, longitude: number) {
+  const instants = seasonInstants(year);
+  const june = calendarDateAtLongitude(instants.june, longitude);
+  const december = calendarDateAtLongitude(instants.december, longitude);
+  const march = calendarDateAtLongitude(instants.march, longitude);
+  const september = calendarDateAtLongitude(instants.september, longitude);
   const northern = latitude >= 0;
   return {
     summer: northern ? june : december,
     winter: northern ? december : june,
-    equinox: march,
+    march,
+    september,
   };
 }
 
@@ -576,6 +614,47 @@ function makeArc(
   };
 }
 
+function separation(a: Vec3, b: Vec3): number {
+  return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+}
+
+function eventAzimuth(
+  instant: Date | null,
+  latitude: number,
+  longitude: number,
+): number | null {
+  if (!instant) return null;
+  return getPosition(instant, latitude, longitude).azimuth;
+}
+
+function riseSetAzimuths(date: Date, latitude: number, longitude: number) {
+  const times = getTimes(date, latitude, longitude);
+  return {
+    rise: eventAzimuth(validDate(times.sunrise), latitude, longitude),
+    set: eventAzimuth(validDate(times.sunset), latitude, longitude),
+  };
+}
+
+export function azimuthFan(
+  edgeA: number | null,
+  edgeB: number | null,
+  contains: number | null,
+): AzimuthFan | null {
+  if (edgeA == null || edgeB == null || contains == null) return null;
+  const clockwise = (edgeB - edgeA + 360) % 360;
+  const toContains = (contains - edgeA + 360) % 360;
+  const containsClockwise = toContains <= clockwise + 1e-6;
+  const start = containsClockwise ? edgeA : edgeB;
+  const sweep = containsClockwise ? clockwise : (edgeA - edgeB + 360) % 360;
+  if (sweep < 0.05 || sweep > 359.95) return null;
+  return { start, sweep };
+}
+
+export function azimuthInFan(azimuth: number, fan: AzimuthFan): boolean {
+  const delta = (azimuth - fan.start + 360) % 360;
+  return delta <= fan.sweep + 1e-4;
+}
+
 export function buildSolarModel(input: {
   year: number;
   dayIndex: number;
@@ -583,7 +662,14 @@ export function buildSolarModel(input: {
   longitude: number;
 }): SolarModel {
   const date = dateFromDayIndex(input.year, input.dayIndex);
-  const seasons = seasonalDates(input.year, input.latitude);
+  const seasons = seasonalDates(input.year, input.latitude, input.longitude);
+  const selectedNoon = noonPosition(date, input.latitude, input.longitude);
+  const marchNoon = noonPosition(seasons.march, input.latitude, input.longitude);
+  const septemberNoon = noonPosition(seasons.september, input.latitude, input.longitude);
+  const equinoxDate =
+    separation(selectedNoon, septemberNoon) < separation(selectedNoon, marchNoon)
+      ? seasons.september
+      : seasons.march;
   const references = [
     {
       id: "summer" as const,
@@ -594,7 +680,7 @@ export function buildSolarModel(input: {
     {
       id: "equinox" as const,
       name: "Equinox",
-      date: seasons.equinox,
+      date: equinoxDate,
       color: ARC_COLORS.equinox,
     },
     {
@@ -605,7 +691,6 @@ export function buildSolarModel(input: {
     },
   ];
 
-  const selectedNoon = noonPosition(date, input.latitude, input.longitude);
   const match = references.find((ref) =>
     samePath(selectedNoon, noonPosition(ref.date, input.latitude, input.longitude)),
   );
@@ -653,11 +738,31 @@ export function buildSolarModel(input: {
     note = "Midnight sun. The sun stays above the horizon all day.";
   }
 
+  const dayTimes = extractSolarDayTimes(times, dayLengthMs);
+  const summerMarks = riseSetAzimuths(seasons.summer, input.latitude, input.longitude);
+  const winterMarks = riseSetAzimuths(seasons.winter, input.latitude, input.longitude);
+  const marchMarks = riseSetAzimuths(seasons.march, input.latitude, input.longitude);
+  const septemberMarks = riseSetAzimuths(seasons.september, input.latitude, input.longitude);
+
   return {
     date,
     arcs,
     note,
-    times: extractSolarDayTimes(times, dayLengthMs),
+    times: dayTimes,
+    horizon: {
+      sunriseAzimuth: eventAzimuth(dayTimes.sunrise, input.latitude, input.longitude),
+      sunsetAzimuth: eventAzimuth(dayTimes.sunset, input.latitude, input.longitude),
+      riseFan: azimuthFan(
+        summerMarks.rise,
+        winterMarks.rise,
+        marchMarks.rise ?? septemberMarks.rise,
+      ),
+      setFan: azimuthFan(
+        summerMarks.set,
+        winterMarks.set,
+        marchMarks.set ?? septemberMarks.set,
+      ),
+    },
   };
 }
 
@@ -967,4 +1072,57 @@ export function gnomonShadow(
     z *= max / length;
   }
   return { x, y: 0.045, z };
+}
+
+export function altitudeSamples(
+  date: Date,
+  latitude: number,
+  longitude: number,
+): AltitudeSample[] {
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
+  const samples: AltitudeSample[] = [];
+  for (let minute = 0; minute <= 1440; minute += SAMPLE_MINUTES) {
+    const instant = instantAtMinutes(year, month, day, minute, longitude);
+    samples.push({
+      minute,
+      sunAltitude: getPosition(instant, latitude, longitude).altitude,
+      moonAltitude: getMoonPosition(instant, latitude, longitude).altitude,
+    });
+  }
+  return samples;
+}
+
+/** Mean-solar minutes after midnight of `day`. Outside [0, 1439] the event belongs to another date. */
+export function seekMinute(
+  instant: Date | null,
+  day: Date,
+  longitude: number,
+): number | null {
+  if (!instant || Number.isNaN(instant.getTime())) return null;
+  const midnight = instantAtMinutes(
+    day.getUTCFullYear(),
+    day.getUTCMonth(),
+    day.getUTCDate(),
+    0,
+    longitude,
+  );
+  const minutes = (instant.getTime() - midnight.getTime()) / 60_000;
+  if (minutes < 0 || minutes > 1439) return null;
+  return minutes;
+}
+
+export function shadowLengthMeters(altitudeDeg: number, heightMeters: number): number | null {
+  if (!(altitudeDeg > 0.15) || !(heightMeters > 0)) return null;
+  const meters = heightMeters / Math.tan(altitudeDeg * DEG);
+  if (!Number.isFinite(meters) || meters < 0) return null;
+  return meters;
+}
+
+export function formatShadow(meters: number | null): string {
+  if (meters === null || !Number.isFinite(meters)) return "—";
+  if (meters > 999) return "999+ m";
+  if (meters < 10) return `${meters.toFixed(1)} m`;
+  return `${Math.round(meters)} m`;
 }
