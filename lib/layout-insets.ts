@@ -28,8 +28,8 @@ export function getBreakpoint(width: number): Breakpoint {
 
 const INSPECTOR_WIDTH = {
   tablet: 340,
-  desktop: 360,
-  large: 400,
+  desktop: 340,
+  large: 380,
 } as const;
 
 const STAT_RAIL_WIDTH = {
@@ -40,13 +40,19 @@ const STAT_RAIL_WIDTH = {
 const HUD_TOP = {
   mobile: 88,
   tablet: 96,
-  desktop: 56,
-  large: 56,
+  desktop: 52,
+  large: 52,
 } as const;
+
+/** Shared top offset for pinned side panels and chrome (clears window controls). */
+export const STUDIO_CHROME_TOP_CLASS =
+  "top-[max(1rem,calc(0.625rem+env(safe-area-inset-top,0px)))]";
 
 const INSPECTOR_PEEK = 72;
 const INSPECTOR_OPEN_RATIO = 0.52;
-const TIMELINE_PEEK = 76;
+/** Collapsed timeline: header row + altitude sparkline + padding. */
+export const TIMELINE_PEEK_HEIGHT = 116;
+const TIMELINE_PEEK = TIMELINE_PEEK_HEIGHT;
 
 export function computeLayoutInsets(
   width: number,

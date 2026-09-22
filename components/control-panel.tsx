@@ -87,7 +87,7 @@ export function ControlPanel(props: ControlPanelProps) {
 
   return (
     <section className="flex flex-col gap-4">
-      {!props.compactHeader && (
+      {!props.compactHeader ? (
         <header className="flex items-start justify-between gap-3">
           <div>
             <p className="font-display text-3xl leading-none tracking-tight text-[#f6f1e7]">
@@ -107,6 +107,13 @@ export function ControlPanel(props: ControlPanelProps) {
           >
             <RotateCcw />
           </Button>
+        </header>
+      ) : (
+        <header className="mb-1 border-b border-white/8 pb-3">
+          <p className="font-display text-xl leading-none tracking-tight text-[#f6f1e7]">Solstice</p>
+          <p className="mt-1 truncate text-xs text-white/50">
+            {locationLabel(props.latitude, props.longitude)}
+          </p>
         </header>
       )}
 
@@ -320,7 +327,7 @@ export function StatRail({
   const duskMinute = seek(model.times.dusk);
 
   return (
-    <aside className="pointer-events-auto hidden h-full w-[min(220px,calc(100vw-28rem))] flex-col gap-2 overflow-y-auto lg:flex 2xl:w-[240px]">
+    <aside className="pointer-events-auto flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
       {showSun && (
         <>
           <Stat

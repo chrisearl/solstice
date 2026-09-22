@@ -8,12 +8,14 @@ import { InspectorPanel } from "@/components/inspector-panel";
 import { SceneHud } from "@/components/scene-hud";
 import { TimelineSheet } from "@/components/timeline-sheet";
 import { ViewSwitcher, type StudioView } from "@/components/view-switcher";
+import { useDavinciUnlock } from "@/hooks/use-davinci-unlock";
 import {
-  isDeviceOrientationSupported,
   requestDeviceOrientationPermission,
   useDeviceOrientation,
+  useIsDeviceOrientationSupported,
 } from "@/hooks/use-device-orientation";
 import { useInspectorLayout, useLayout } from "@/hooks/use-layout";
+import { STUDIO_CHROME_TOP_CLASS } from "@/lib/layout-insets";
 import type { ParsedView } from "@/lib/view-query";
 import { serializeViewQuery, viewHistoryState } from "@/lib/view-query";
 import {
@@ -101,9 +103,11 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const bootLatitude = initial?.latitude ?? ORLANDO.lat;
   const bootLongitude = initial?.longitude ?? ORLANDO.lng;
-  const bootTimeline = initialTimelineState(initial, bootLatitude, bootLongitude);
+  const [bootTimeline] = useState(() =>
+    initialTimelineState(initial, bootLatitude, bootLongitude),
+  );
   const today = bootTimeline.today ?? todayCalendar();
-  const [timelineWindow] = useState<TimelineWindow>(() => bootTimeline.window);
+  const timelineWindow = bootTimeline.window;
   const [timelineOffset, setTimelineOffset] = useState(() => bootTimeline.offset);
   const [year, setYear] = useState(() => initial?.year ?? bootTimeline.year ?? today.year);
   const [dayIndex, setDayIndex] = useState(
@@ -128,9 +132,10 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   const [fullscreen, setFullscreen] = useState(false);
   const [davinciMounted, setDavinciMounted] = useState(false);
   const [followHeading, setFollowHeading] = useState(false);
+  const { davinciUnlocked } = useDavinciUnlock();
 
   const { state: orientationState, markDenied } = useDeviceOrientation(followHeading);
-  const orientationSupported = isDeviceOrientationSupported();
+  const orientationSupported = useIsDeviceOrientationSupported();
   const deviceHeading =
     orientationState.status === "active" ? orientationState.heading : null;
   const orientationHint =
@@ -180,9 +185,16 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   );
 
   const selectView = (next: StudioView) => {
+    if (next === "davinci" && !davinciUnlocked) return;
     if (next === "davinci") setDavinciMounted(true);
     setView(next);
   };
+
+  useEffect(() => {
+    if (!davinciUnlocked && view === "davinci") {
+      setView("default");
+    }
+  }, [davinciUnlocked, view]);
 
   const showStudioChrome = !fullscreen;
   const parchment = view === "davinci";
@@ -603,6 +615,8 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
           showMoon={showMoon}
           inspectorOpen={inspectorOpen}
           variant={fullscreen ? "minimal" : "full"}
+          desktopChrome={showStudioChrome && showDesktopRail}
+          layoutInsets={insets}
           tone={parchment ? "parchment" : "night"}
           followHeading={followHeading}
           deviceHeading={deviceHeading}
@@ -623,9 +637,9 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
       {showStudioChrome && showPinnedInspector && (
         <aside
           data-chrome-panel
-          className="pointer-events-auto fixed top-3 bottom-3 left-3 z-30 hidden w-[min(360px,calc(100vw-28rem))] flex-col rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,30,0.92),rgba(8,10,16,0.86))] shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl lg:flex 2xl:w-[min(400px,calc(100vw-32rem))]"
+          className={`pointer-events-auto fixed ${STUDIO_CHROME_TOP_CLASS} bottom-3 left-3 z-30 hidden w-[min(340px,calc(100vw-30rem))] flex-col rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,30,0.92),rgba(8,10,16,0.86))] shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl lg:flex 2xl:w-[min(380px,calc(100vw-34rem))]`}
         >
-          <div className="panel-scroll min-h-0 flex-1 overflow-y-auto p-5">
+          <div className="panel-scroll min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-5">
             <ControlPanel {...sharedPanelProps} compactHeader />
           </div>
         </aside>
@@ -643,7 +657,18 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
       )}
 
       {showStudioChrome && showDesktopRail && (
-        <div className="pointer-events-none absolute top-3 right-3 bottom-3 z-20 hidden lg:block">
+        <div
+          className={`pointer-events-none absolute ${STUDIO_CHROME_TOP_CLASS} right-3 bottom-3 z-30 hidden w-[min(220px,calc(100vw-30rem))] flex-col gap-2 lg:flex 2xl:w-[240px]`}
+        >
+          <ViewSwitcher
+            inline
+            view={view}
+            fullscreen={fullscreen}
+            davinciUnlocked={davinciUnlocked}
+            onView={selectView}
+            onFullscreen={() => setFullscreen((value) => !value)}
+            className="pointer-events-auto shrink-0"
+          />
           <StatRail
             model={model}
             moonModel={moonModel}
@@ -697,12 +722,15 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
         onSpeed={setPlaybackSpeed}
       />
 
-      <ViewSwitcher
-        view={view}
-        fullscreen={fullscreen}
-        onView={selectView}
-        onFullscreen={() => setFullscreen((value) => !value)}
-      />
+      {(!showStudioChrome || !showDesktopRail) && (
+        <ViewSwitcher
+          view={view}
+          fullscreen={fullscreen}
+          davinciUnlocked={davinciUnlocked}
+          onView={selectView}
+          onFullscreen={() => setFullscreen((value) => !value)}
+        />
+      )}
 
       <p className="sr-only">
         Three-dimensional chart of the sky for {locationLabel(latitude, longitude)}. Sun azimuth{" "}

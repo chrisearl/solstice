@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronUp, Clock, Gauge, Pause, Play } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { AltitudeSparkline } from "@/components/altitude-sparkline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import {
   type AltitudeSample,
   type SunPlacement,
 } from "@/lib/solar";
+import { TIMELINE_PEEK_HEIGHT } from "@/lib/layout-insets";
 import {
   formatTimelineOffset,
   nextPlaybackSpeed,
@@ -49,8 +50,13 @@ interface TimelineSheetProps {
   onSpeed: (speed: PlaybackSpeed) => void;
 }
 
+function subscribeNoop() {
+  return () => {};
+}
+
 export function TimelineSheet(props: TimelineSheetProps) {
   const [state, setState] = useState<TimelineSheetState>("peek");
+  const showNowMarker = useSyncExternalStore(subscribeNoop, () => true, () => false);
   const tone = props.tone ?? "night";
   const timeZone = useMemo(
     () => resolveTimeZone(props.latitude, props.longitude),
@@ -96,13 +102,19 @@ export function TimelineSheet(props: TimelineSheetProps) {
     return { start, mid, end };
   }, [props.window.anchorMs, props.window.durationMinutes, timeZone]);
 
+  const maxHeight =
+    state === "peek"
+      ? `calc(${TIMELINE_PEEK_HEIGHT}px + env(safe-area-inset-bottom, 0px))`
+      : "calc(min(34dvh, 15rem) + env(safe-area-inset-bottom, 0px))";
+
   return (
     <aside
       data-chrome-panel
-      className={`pointer-events-auto fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,30,0.96),rgba(8,10,16,0.94))] shadow-[0_-24px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl transition-[max-height] duration-300 ease-out motion-reduce:transition-none ${
-        state === "peek" ? "max-h-[4.75rem]" : "max-h-[min(34dvh,15rem)]"
-      }`}
-      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      className="pointer-events-auto fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,30,0.96),rgba(8,10,16,0.94))] shadow-[0_-24px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl transition-[max-height] duration-300 ease-out motion-reduce:transition-none"
+      style={{
+        maxHeight,
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}
     >
       <div className="flex items-center gap-2 px-3 py-2 md:px-4">
         <button
@@ -184,7 +196,7 @@ export function TimelineSheet(props: TimelineSheetProps) {
                 showMoon={props.showMoon}
                 tone={tone}
                 rangeMinutes={props.window.durationMinutes}
-                nowOffset={props.window.nowOffset}
+                nowOffset={showNowMarker ? props.window.nowOffset : undefined}
               />
               {state === "open" && (
                 <div className="flex justify-between px-0.5 font-mono text-[10px] tracking-wide text-white/35">

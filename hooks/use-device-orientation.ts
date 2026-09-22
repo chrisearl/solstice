@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 export type DeviceOrientationState =
   | { status: "idle" }
@@ -36,6 +36,14 @@ export function isDeviceOrientationSupported(): boolean {
   return typeof window !== "undefined" && "DeviceOrientationEvent" in window;
 }
 
+export function useIsDeviceOrientationSupported(): boolean {
+  return useSyncExternalStore(
+    () => () => {},
+    isDeviceOrientationSupported,
+    () => false,
+  );
+}
+
 export async function requestDeviceOrientationPermission(): Promise<
   "granted" | "denied" | "unsupported"
 > {
@@ -53,15 +61,14 @@ export async function requestDeviceOrientationPermission(): Promise<
 }
 
 export function useDeviceOrientation(enabled: boolean) {
-  const [state, setState] = useState<DeviceOrientationState>(() =>
-    isDeviceOrientationSupported() ? { status: "idle" } : { status: "unsupported" },
-  );
+  const supported = useIsDeviceOrientationSupported();
+  const [state, setState] = useState<DeviceOrientationState>({ status: "idle" });
   const smoothedHeading = useRef<number | null>(null);
 
   const reset = useCallback(() => {
     smoothedHeading.current = null;
-    setState(isDeviceOrientationSupported() ? { status: "idle" } : { status: "unsupported" });
-  }, []);
+    setState(supported ? { status: "idle" } : { status: "unsupported" });
+  }, [supported]);
 
   useEffect(() => {
     if (!enabled) {
@@ -69,7 +76,7 @@ export function useDeviceOrientation(enabled: boolean) {
       return;
     }
 
-    if (!isDeviceOrientationSupported()) {
+    if (!supported) {
       setState({ status: "unsupported" });
       return;
     }
@@ -90,7 +97,7 @@ export function useDeviceOrientation(enabled: boolean) {
 
     window.addEventListener("deviceorientation", onOrientation, true);
     return () => window.removeEventListener("deviceorientation", onOrientation, true);
-  }, [enabled, reset]);
+  }, [enabled, reset, supported]);
 
   const markDenied = useCallback(() => {
     smoothedHeading.current = null;

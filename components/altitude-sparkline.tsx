@@ -26,6 +26,8 @@ export function AltitudeSparkline({
   const width = 100;
   const height = 44;
   const x = (minute: number) => (minute / rangeMinutes) * width;
+  const xLabel = (minute: number) =>
+    x(Math.min(Math.max(minute, 0), rangeMinutes)).toFixed(2);
   const y = (altitude: number) => {
     const clamped = Math.min(MAX_ALT, Math.max(MIN_ALT, altitude));
     return height - ((clamped - MIN_ALT) / (MAX_ALT - MIN_ALT)) * height;
@@ -37,9 +39,8 @@ export function AltitudeSparkline({
         return `${command}${x(sample.minute).toFixed(2)},${y(sample[key]).toFixed(2)}`;
       })
       .join(" ");
-  const playhead = x(Math.min(Math.max(minutes, 0), rangeMinutes));
-  const nowMarker =
-    nowOffset === undefined ? null : x(Math.min(Math.max(nowOffset, 0), rangeMinutes));
+  const playhead = xLabel(minutes);
+  const nowMarker = nowOffset === undefined ? null : xLabel(nowOffset);
 
   return (
     <svg
@@ -62,9 +63,9 @@ export function AltitudeSparkline({
       )}
       <line
         x1="0"
-        x2={width}
-        y1={y(0)}
-        y2={y(0)}
+        x2={String(width)}
+        y1={y(0).toFixed(2)}
+        y2={y(0).toFixed(2)}
         stroke={parchment ? "rgba(58,36,18,0.35)" : "rgba(255,255,255,0.28)"}
         strokeWidth="1"
         vectorEffect="non-scaling-stroke"

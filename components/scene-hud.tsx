@@ -31,7 +31,7 @@ import {
   type SunLightingPhaseInfo,
   type SunPlacement,
 } from "@/lib/solar";
-import type { Breakpoint } from "@/lib/layout-insets";
+import type { Breakpoint, LayoutInsets } from "@/lib/layout-insets";
 
 interface SceneHudProps {
   breakpoint: Breakpoint;
@@ -47,6 +47,9 @@ interface SceneHudProps {
   showMoon: boolean;
   inspectorOpen: boolean;
   variant?: "full" | "minimal";
+  /** Side panels visible — keep HUD in the center column only. */
+  desktopChrome?: boolean;
+  layoutInsets?: LayoutInsets;
   tone?: ChromeTone;
   followHeading: boolean;
   deviceHeading: number | null;
@@ -80,34 +83,83 @@ export function SceneHud(props: SceneHudProps) {
   const wide = props.breakpoint === "tablet" || props.breakpoint === "desktop" || props.breakpoint === "large";
   const tone = props.tone ?? "night";
 
-  if (props.variant === "minimal") {
-    return (
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-end px-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))]">
-        <div className="pointer-events-auto flex gap-1.5">
-          <HudAction
-            label={props.playing ? "Pause day" : "Play day"}
-            pressed={props.playing}
-            onClick={() => props.onPlaying(!props.playing)}
-          >
-            {props.playing ? <Pause /> : <Play />}
-          </HudAction>
-          <HudAction label="Reset camera" onClick={props.onResetView}>
-            <RotateCcw />
-          </HudAction>
+  const hudTopClass = "pt-[calc(0.75rem+env(safe-area-inset-top,0px))]";
+  const actionButtons = (
+    <>
+      <HudAction
+        label={props.playing ? "Pause day" : "Play day"}
+        pressed={props.playing}
+        onClick={() => props.onPlaying(!props.playing)}
+      >
+        {props.playing ? <Pause /> : <Play />}
+      </HudAction>
+      <HudAction label="Reset camera" onClick={props.onResetView}>
+        <RotateCcw />
+      </HudAction>
+      {props.variant !== "minimal" && (
+        <>
           <HudAction
             label={props.followHeading ? "Stop following heading" : "Follow device heading"}
             pressed={props.followHeading}
             onClick={() => props.onFollowHeading(!props.followHeading)}
+            className="lg:hidden"
           >
             <Compass />
           </HudAction>
+          <HudAction
+            label={props.inspectorOpen ? "Close inspector" : "Open inspector"}
+            pressed={props.inspectorOpen}
+            onClick={props.onToggleInspector}
+            className="lg:hidden"
+          >
+            <Settings2 />
+          </HudAction>
+        </>
+      )}
+      {props.variant === "minimal" && (
+        <HudAction
+          label={props.followHeading ? "Stop following heading" : "Follow device heading"}
+          pressed={props.followHeading}
+          onClick={() => props.onFollowHeading(!props.followHeading)}
+        >
+          <Compass />
+        </HudAction>
+      )}
+    </>
+  );
+
+  if (props.variant === "minimal") {
+    return (
+      <div className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-end px-3 ${hudTopClass}`}>
+        <div className="pointer-events-auto flex gap-1.5">{actionButtons}</div>
+      </div>
+    );
+  }
+
+  if (props.desktopChrome && props.layoutInsets) {
+    return (
+      <div
+        className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center ${hudTopClass}`}
+        style={{
+          paddingLeft: props.layoutInsets.left,
+          paddingRight: props.layoutInsets.right,
+        }}
+      >
+        <div className="pointer-events-auto flex w-full max-w-xl items-center justify-between gap-3 px-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <TimeChip time={timeLabel} date={dateLabel} civil={civilTime} playing={props.playing} />
+            {props.showSun && <PhaseChip phase={props.sun.lightingPhase} tone={tone} />}
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">{actionButtons}</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 px-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] pr-[7.5rem] md:px-4 md:pr-[8.5rem] lg:px-5 lg:pr-[9rem]">
+    <div
+      className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 px-3 ${hudTopClass} pr-[7.5rem] md:px-4 md:pr-[8.5rem]`}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="pointer-events-auto flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -138,7 +190,7 @@ export function SceneHud(props: SceneHudProps) {
                   tone={props.sun.aboveHorizon ? "day" : "night"}
                   compact={props.breakpoint === "mobile"}
                 />
-                {wide && (
+                {wide && props.breakpoint === "tablet" && (
                   <>
                     <MetricPill
                       label="Sunrise"
@@ -177,7 +229,7 @@ export function SceneHud(props: SceneHudProps) {
                   tone={props.moon.aboveHorizon ? "day" : "night"}
                   compact={props.breakpoint === "mobile"}
                 />
-                {(props.breakpoint === "tablet" || props.breakpoint === "desktop" || props.breakpoint === "large") && (
+                {props.breakpoint === "tablet" && (
                   <MetricPill
                     label={props.moon.phaseLabel}
                     value={`${Math.round(props.moon.fraction * 100)}% lit`}
@@ -197,33 +249,8 @@ export function SceneHud(props: SceneHudProps) {
           </div>
         </div>
 
-        <div className="pointer-events-auto flex shrink-0 flex-col gap-1.5 sm:flex-row lg:flex-col">
-          <HudAction
-            label={props.playing ? "Pause day" : "Play day"}
-            pressed={props.playing}
-            onClick={() => props.onPlaying(!props.playing)}
-          >
-            {props.playing ? <Pause /> : <Play />}
-          </HudAction>
-          <HudAction label="Reset camera" onClick={props.onResetView}>
-            <RotateCcw />
-          </HudAction>
-          <HudAction
-            label={props.followHeading ? "Stop following heading" : "Follow device heading"}
-            pressed={props.followHeading}
-            onClick={() => props.onFollowHeading(!props.followHeading)}
-            className="lg:hidden"
-          >
-            <Compass />
-          </HudAction>
-          <HudAction
-            label={props.inspectorOpen ? "Close inspector" : "Open inspector"}
-            pressed={props.inspectorOpen}
-            onClick={props.onToggleInspector}
-            className="lg:hidden"
-          >
-            <Settings2 />
-          </HudAction>
+        <div className="pointer-events-auto flex shrink-0 flex-col gap-1.5 sm:flex-row">
+          {actionButtons}
         </div>
       </div>
     </div>
