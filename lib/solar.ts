@@ -1,4 +1,10 @@
-import { getPosition, getTimes } from "suncalc";
+import {
+  getMoonIllumination,
+  getMoonPosition,
+  getMoonTimes,
+  getPosition,
+  getTimes,
+} from "suncalc";
 
 /** Ground disc radius in scene units. */
 export const DISC_RADIUS = 5.2;
@@ -20,6 +26,8 @@ export const ARC_COLORS = {
   equinox: "#f3ecdf",
   selected: "#ffe38a",
 } as const;
+
+export const MOON_ARC_COLOR = "#b8c9de";
 
 export const ORLANDO = { name: "Orlando, FL", lat: 28.5383, lng: -81.3792 };
 
@@ -90,6 +98,41 @@ export interface SunPlacement {
   bearing: Vec3;
   aboveHorizon: boolean;
   shadow: Vec3 | null;
+}
+
+/** Shared arc geometry for sun seasonal paths and the moon path. */
+export interface SkyPath {
+  label: string;
+  detail: string;
+  color: string;
+  points: Vec3[];
+  closed: boolean;
+  underPoints: Vec3[];
+  underClosed: boolean;
+  emphasized: boolean;
+  apex: Vec3 | null;
+}
+
+export interface MoonModel {
+  arc: SkyPath;
+  times: {
+    rise: Date | null;
+    set: Date | null;
+    alwaysUp: boolean;
+    alwaysDown: boolean;
+  };
+}
+
+export interface MoonPlacement {
+  azimuth: number;
+  altitude: number;
+  position: Vec3;
+  bearing: Vec3;
+  aboveHorizon: boolean;
+  fraction: number;
+  phase: number;
+  waxing: boolean;
+  phaseLabel: string;
 }
 
 export type CoordinateStatus = "valid" | "draft" | "invalid";
@@ -333,26 +376,26 @@ function horizonPoint(a: Sample, b: Sample): Vec3 {
   return project(lerpAngle(a.azimuth, b.azimuth, t), 0, SKY_RADIUS);
 }
 
-function samplePath(
+function sampleBodyPath(
   date: Date,
   latitude: number,
   longitude: number,
+  positionAt: (instant: Date) => { azimuth: number; altitude: number },
+  extraStamps: number[] = [],
 ): { points: Vec3[]; closed: boolean; underPoints: Vec3[]; underClosed: boolean } {
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth();
   const day = date.getUTCDate();
-  const times = getTimes(date, latitude, longitude);
   const stamps: number[] = [];
 
   for (let minutes = 0; minutes <= 1440; minutes += SAMPLE_MINUTES) {
     stamps.push(instantAtMinutes(year, month, day, minutes, longitude).getTime());
   }
-  if (times.sunrise) stamps.push(times.sunrise.getTime());
-  if (times.sunset) stamps.push(times.sunset.getTime());
+  stamps.push(...extraStamps);
   stamps.sort((a, b) => a - b);
 
   const samples: Sample[] = stamps.map((ms) => {
-    const position = getPosition(new Date(ms), latitude, longitude);
+    const position = positionAt(new Date(ms));
     return {
       ...project(position.azimuth, position.altitude, SKY_RADIUS),
       altitude: position.altitude,
@@ -421,6 +464,42 @@ function samplePath(
   }
 
   return { points, closed: alwaysUp, underPoints, underClosed };
+}
+
+function samplePath(
+  date: Date,
+  latitude: number,
+  longitude: number,
+): { points: Vec3[]; closed: boolean; underPoints: Vec3[]; underClosed: boolean } {
+  const times = getTimes(date, latitude, longitude);
+  const extras = [times.sunrise, times.sunset]
+    .filter((value): value is Date => Boolean(value))
+    .map((value) => value.getTime());
+  return sampleBodyPath(
+    date,
+    latitude,
+    longitude,
+    (instant) => getPosition(instant, latitude, longitude),
+    extras,
+  );
+}
+
+function sampleMoonPath(
+  date: Date,
+  latitude: number,
+  longitude: number,
+): { points: Vec3[]; closed: boolean; underPoints: Vec3[]; underClosed: boolean } {
+  const times = getMoonTimes(date, latitude, longitude);
+  const extras = [times.rise, times.set]
+    .filter((value): value is Date => Boolean(value))
+    .map((value) => value.getTime());
+  return sampleBodyPath(
+    date,
+    latitude,
+    longitude,
+    (instant) => getMoonPosition(instant, latitude, longitude),
+    extras,
+  );
 }
 
 function apexOf(points: Vec3[]): Vec3 | null {
@@ -552,6 +631,78 @@ export function buildSolarModel(input: {
       alwaysDown: Boolean(times.alwaysDown),
       dayLengthMs,
     },
+  };
+}
+
+export function moonPhaseLabel(phase: number, waxing: boolean): string {
+  if (phase < 0.03 || phase > 0.97) return "New moon";
+  if (phase < 0.22) return waxing ? "Waxing crescent" : "Waning crescent";
+  if (phase < 0.28) return waxing ? "First quarter" : "Last quarter";
+  if (phase < 0.47) return waxing ? "Waxing gibbous" : "Waning gibbous";
+  if (phase < 0.53) return "Full moon";
+  if (phase < 0.72) return waxing ? "Waxing gibbous" : "Waning gibbous";
+  if (phase < 0.78) return waxing ? "First quarter" : "Last quarter";
+  return waxing ? "Waxing crescent" : "Waning crescent";
+}
+
+export function buildMoonModel(
+  date: Date,
+  latitude: number,
+  longitude: number,
+): MoonModel {
+  const path = sampleMoonPath(date, latitude, longitude);
+  const times = getMoonTimes(date, latitude, longitude);
+
+  return {
+    arc: {
+      label: "Moon path",
+      detail: formatMonthDay(date),
+      color: MOON_ARC_COLOR,
+      points: path.points,
+      closed: path.closed,
+      underPoints: path.underPoints,
+      underClosed: path.underClosed,
+      emphasized: true,
+      apex: apexOf(path.points),
+    },
+    times: {
+      rise: times.rise ?? null,
+      set: times.set ?? null,
+      alwaysUp: Boolean(times.alwaysUp),
+      alwaysDown: Boolean(times.alwaysDown),
+    },
+  };
+}
+
+export function placeMoon(
+  date: Date,
+  minutes: number,
+  latitude: number,
+  longitude: number,
+): MoonPlacement {
+  const instant = instantAtMinutes(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    minutes,
+    longitude,
+  );
+  const position = getMoonPosition(instant, latitude, longitude);
+  const illumination = getMoonIllumination(instant);
+  const sky = project(position.azimuth, position.altitude, SKY_RADIUS);
+  const bearing = project(position.azimuth, 0, SKY_RADIUS);
+  bearing.y = 0.05;
+
+  return {
+    azimuth: position.azimuth,
+    altitude: position.altitude,
+    position: sky,
+    bearing,
+    aboveHorizon: position.altitude > 0,
+    fraction: illumination.fraction,
+    phase: illumination.phase,
+    waxing: illumination.waxing,
+    phaseLabel: moonPhaseLabel(illumination.phase, illumination.waxing),
   };
 }
 

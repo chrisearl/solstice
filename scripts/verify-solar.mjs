@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { getPosition, getTimes } from "suncalc";
 import {
+  buildMoonModel,
   buildSolarModel,
   formatMeanTime,
   gnomonShadow,
+  placeMoon,
   placeSun,
   project,
 } from "../lib/solar.ts";
@@ -68,6 +70,23 @@ test("Sydney December noon is high and north of the observer", () => {
   assert.ok(position.altitude > 70, String(position.altitude));
   const sky = project(position.azimuth, position.altitude, 1);
   assert.ok(sky.z > 0, `expected north, got azimuth ${position.azimuth}`);
+});
+
+test("moon path and placement stay on the sky dome in Orlando", () => {
+  const model = buildSolarModel({
+    year: 2026,
+    dayIndex: 171,
+    latitude: ORLANDO.lat,
+    longitude: ORLANDO.lng,
+  });
+  const moonModel = buildMoonModel(model.date, ORLANDO.lat, ORLANDO.lng);
+  assert.ok(moonModel.arc.points.length > 10);
+  assert.ok(moonModel.arc.underPoints.length > 10);
+
+  const moon = placeMoon(model.date, 22 * 60, ORLANDO.lat, ORLANDO.lng);
+  assert.ok(moon.phaseLabel.length > 0);
+  assert.ok(moon.fraction >= 0 && moon.fraction <= 1);
+  assert.ok(Math.hypot(moon.position.x, moon.position.y, moon.position.z) > 0.5);
 });
 
 test("gnomon shadow falls opposite the sun", () => {
