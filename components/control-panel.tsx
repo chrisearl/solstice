@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { formatCivilTime, timezoneAt } from "@/lib/civil-time";
-import { PHASE_TEXT, phaseTrackStyle } from "@/lib/light";
+import { phaseLabelColor, phaseTrackStyle, type ChromeTone } from "@/lib/light";
 import {
   PRESETS,
   coordinateStatus,
@@ -72,6 +72,7 @@ interface ControlPanelProps {
   locating: boolean;
   geoError: string | null;
   compactHeader?: boolean;
+  tone?: ChromeTone;
   onLatText: (value: string) => void;
   onLngText: (value: string) => void;
   onPreset: (lat: number, lng: number) => void;
@@ -108,6 +109,7 @@ export function ControlPanel(props: ControlPanelProps) {
     return formatCivilTime(instant, timeZone);
   }, [timeZone, props.model.date, props.minutes, props.longitude]);
   const shadowMeters = shadowLengthMeters(props.sun.altitude, props.objectHeight);
+  const tone = props.tone ?? "night";
 
   return (
     <section className="flex flex-col gap-4">
@@ -253,7 +255,7 @@ export function ControlPanel(props: ControlPanelProps) {
           </div>
         </div>
         {props.showSun && (
-          <p className="text-xs" style={{ color: PHASE_TEXT[props.sun.lightingPhase.id] }}>
+          <p className="text-xs" style={{ color: phaseLabelColor(props.sun.lightingPhase.id, tone) }}>
             {props.sun.lightingPhase.label}
           </p>
         )}
@@ -267,13 +269,14 @@ export function ControlPanel(props: ControlPanelProps) {
               onValueChange={([value]) => props.onMinutes(value)}
               aria-label="Time of day"
               hideRange
-              trackStyle={phaseTrackStyle(props.samples, props.model.times, props.longitude)}
+              trackStyle={phaseTrackStyle(props.samples, props.model.times, props.longitude, tone)}
             />
             <AltitudeSparkline
               samples={props.samples}
               minutes={props.minutes}
               showSun={props.showSun}
               showMoon={props.showMoon}
+              tone={tone}
             />
             <div className="flex justify-between px-0.5 font-mono text-[10px] tracking-wide text-white/35">
               <span>12 AM</span>
@@ -575,7 +578,7 @@ function Stat({
       <p className="text-[11px] text-white/40">{hint}</p>
     </>
   );
-  const shell = "rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5";
+  const shell = "chrome-surface rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5";
   if (!onClick) return <div className={shell}>{body}</div>;
   return (
     <button

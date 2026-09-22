@@ -14,7 +14,7 @@ import {
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { formatCivilTime, timezoneAt } from "@/lib/civil-time";
-import { PHASE_COLORS, phaseInk } from "@/lib/light";
+import { phaseChipStyle, type ChromeTone } from "@/lib/light";
 import {
   compassLabel,
   formatAzimuth,
@@ -47,6 +47,7 @@ interface SceneHudProps {
   showMoon: boolean;
   inspectorOpen: boolean;
   variant?: "full" | "minimal";
+  tone?: ChromeTone;
   followHeading: boolean;
   deviceHeading: number | null;
   onMinutes: (value: number) => void;
@@ -77,6 +78,7 @@ export function SceneHud(props: SceneHudProps) {
   }, [timeZone, props.model.date, props.minutes, props.longitude]);
   const seek = (instant: Date | null) => seekMinute(instant, props.model.date, props.longitude);
   const wide = props.breakpoint === "tablet" || props.breakpoint === "desktop" || props.breakpoint === "large";
+  const tone = props.tone ?? "night";
 
   if (props.variant === "minimal") {
     return (
@@ -111,7 +113,7 @@ export function SceneHud(props: SceneHudProps) {
           <div className="flex flex-wrap items-center gap-2">
             <LocationChip label={location} />
             <TimeChip time={timeLabel} date={dateLabel} civil={civilTime} playing={props.playing} />
-            {props.showSun && <PhaseChip phase={props.sun.lightingPhase} />}
+            {props.showSun && <PhaseChip phase={props.sun.lightingPhase} tone={tone} />}
           </div>
 
           <div
@@ -230,7 +232,7 @@ export function SceneHud(props: SceneHudProps) {
 
 function LocationChip({ label }: { label: string }) {
   return (
-    <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/10 bg-black/45 px-3 py-1.5 backdrop-blur-md">
+    <div className="chrome-surface inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/10 bg-black/45 px-3 py-1.5 backdrop-blur-md">
       <MapPin className="size-3.5 shrink-0 text-[#f0b429]" />
       <span className="truncate text-[11px] tracking-[0.14em] text-white/70 uppercase">{label}</span>
     </div>
@@ -249,7 +251,7 @@ function TimeChip({
   playing: boolean;
 }) {
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/45 px-3 py-1.5 backdrop-blur-md">
+    <div className="chrome-surface inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/45 px-3 py-1.5 backdrop-blur-md">
       <Clock className="size-3.5 shrink-0 text-[#f0b429]" />
       <div className="min-w-0">
         <p className="font-mono text-sm text-[#f7f3ea] tabular-nums">{time}</p>
@@ -266,11 +268,11 @@ function TimeChip({
   );
 }
 
-function PhaseChip({ phase }: { phase: SunLightingPhaseInfo }) {
+function PhaseChip({ phase, tone }: { phase: SunLightingPhaseInfo; tone: ChromeTone }) {
   return (
     <div
       className="inline-flex items-center rounded-full border border-white/15 px-3 py-1.5 backdrop-blur-md"
-      style={{ background: PHASE_COLORS[phase.id], color: phaseInk(phase.id) }}
+      style={phaseChipStyle(phase.id, tone)}
     >
       <span className="text-[11px] tracking-[0.12em] uppercase">{phase.label}</span>
     </div>
@@ -304,8 +306,8 @@ function MetricPill({
         ? "text-white/55"
         : "text-[#f7f3ea]";
   const className = compact
-    ? "rounded-xl border border-white/10 bg-black/40 px-2.5 py-1.5 text-left backdrop-blur-md"
-    : "rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-left backdrop-blur-md";
+    ? "chrome-surface rounded-xl border border-white/10 bg-black/40 px-2.5 py-1.5 text-left backdrop-blur-md"
+    : "chrome-surface rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-left backdrop-blur-md";
   const body = (
     <>
       <div className="flex items-center gap-1 text-[9px] tracking-[0.14em] text-white/45 uppercase">
@@ -344,7 +346,7 @@ function HudAction({
       aria-label={label}
       aria-pressed={pressed}
       onClick={onClick}
-      className={`size-11 border-white/10 bg-black/45 text-white backdrop-blur-md hover:bg-white/10 ${pressed ? "border-[#f0b429]/40 bg-[#f0b429]/15" : ""} ${className}`}
+      className={`chrome-surface size-11 border-white/10 bg-black/45 text-white backdrop-blur-md hover:bg-white/10 ${pressed ? "border-[#f0b429]/40 bg-[#f0b429]/15" : ""} ${className}`}
     >
       {children}
     </Button>

@@ -175,6 +175,135 @@ input[type="time"] {
   mix-blend-mode: multiply;
 }
 
+[data-chrome="parchment"] {
+  --foreground: #36220f;
+  --muted: #e6d3b0;
+  --muted-foreground: #6b4a2b;
+  --primary: #4a2f18;
+  --primary-foreground: #f4e8d1;
+  --ring: #5c3b1e;
+  --border: rgba(92, 59, 30, 0.35);
+  --input: rgba(255, 248, 235, 0.86);
+  color: #36220f;
+}
+
+[data-chrome="parchment"] :is(
+  .text-white,
+  .text-white\/70,
+  .text-white\/75,
+  .text-white\/80,
+  .text-\[\#f6f1e7\],
+  .text-\[\#f7f3ea\],
+  .text-\[\#f3efe6\]
+) {
+  color: #2b190d !important;
+}
+
+[data-chrome="parchment"] :is(
+  .text-white\/25,
+  .text-white\/35,
+  .text-white\/40,
+  .text-white\/45,
+  .text-white\/50,
+  .text-white\/55,
+  .text-white\/60
+) {
+  color: rgba(58, 36, 18, 0.68) !important;
+}
+
+[data-chrome="parchment"] :is(.text-\[\#f0b429\], .text-\[\#ffd78a\]) {
+  color: #6b3e16 !important;
+}
+
+[data-chrome="parchment"] .text-\[\#ffb4a8\] {
+  color: #8c2f24 !important;
+}
+
+[data-chrome="parchment"] .text-\[\#1b1406\] {
+  color: #f4e8d1 !important;
+}
+
+[data-chrome="parchment"] .hover\:text-white\/80:hover {
+  color: #2b190d !important;
+}
+
+[data-chrome="parchment"] :is(.bg-black\/40, .bg-black\/45, .bg-black\/55),
+[data-chrome="parchment"] .chrome-surface,
+[data-chrome="parchment"] .bg-white\/\[0\.04\] {
+  background-color: rgba(244, 232, 209, 0.92) !important;
+  border-color: rgba(92, 59, 30, 0.38);
+}
+
+[data-chrome="parchment"] .bg-black\/20,
+[data-chrome="parchment"] .bg-white\/5 {
+  background-color: rgba(255, 248, 235, 0.72) !important;
+}
+
+[data-chrome="parchment"] :is(.bg-black\/25, .bg-black\/35) {
+  background-color: rgba(54, 34, 15, 0.32) !important;
+}
+
+[data-chrome="parchment"] .bg-white\/25 {
+  background-color: rgba(58, 36, 18, 0.35) !important;
+}
+
+[data-chrome="parchment"] .hover\:bg-white\/10:hover {
+  background-color: rgba(74, 47, 24, 0.1) !important;
+}
+
+[data-chrome="parchment"] :is(
+  .bg-\[\#f0b429\],
+  .hover\:bg-\[\#f0b429\]\/90:hover,
+  .hover\:bg-\[\#ffd36a\]:hover
+) {
+  background-color: #4a2f18 !important;
+}
+
+[data-chrome="parchment"] .bg-\[\#f0b429\]\/15 {
+  background-color: rgba(74, 47, 24, 0.16) !important;
+}
+
+[data-chrome="parchment"] .bg-\[\#f0b429\]\/70 {
+  background-color: rgba(74, 47, 24, 0.65) !important;
+}
+
+[data-chrome="parchment"] .border-white\/10 {
+  border-color: rgba(92, 59, 30, 0.34) !important;
+}
+
+[data-chrome="parchment"] .border-white\/15 {
+  border-color: rgba(92, 59, 30, 0.48) !important;
+}
+
+[data-chrome="parchment"] .border-\[\#f0b429\]\/40 {
+  border-color: rgba(74, 47, 24, 0.55) !important;
+}
+
+[data-chrome="parchment"] [data-chrome-panel] {
+  border-color: rgba(92, 59, 30, 0.38) !important;
+  background: linear-gradient(180deg, rgba(244, 232, 209, 0.97), rgba(223, 205, 173, 0.95)) !important;
+  box-shadow: 0 24px 70px rgba(66, 45, 27, 0.28) !important;
+  color: #36220f;
+}
+
+[data-chrome="parchment"] input {
+  color-scheme: light;
+  background-color: rgba(255, 248, 235, 0.86);
+  color: #2b190d;
+  border-color: rgba(92, 59, 30, 0.35);
+}
+
+[data-chrome="parchment"] .panel-scroll {
+  scrollbar-color: rgba(92, 59, 30, 0.45) transparent;
+}
+
+[data-chrome="parchment"] [data-slot="slider-thumb"] {
+  border-color: #4a2f18;
+  background-color: #4a2f18;
+  box-shadow: none;
+  outline-color: rgba(244, 232, 209, 0.95);
+}
+
 .davinci-paper {
   pointer-events: none;
   position: absolute;

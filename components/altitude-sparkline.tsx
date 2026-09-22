@@ -1,3 +1,4 @@
+import type { ChromeTone } from "@/lib/light";
 import { MOON_ARC_COLOR, type AltitudeSample } from "@/lib/solar";
 
 const MIN_ALT = -30;
@@ -8,12 +9,15 @@ export function AltitudeSparkline({
   minutes,
   showSun,
   showMoon,
+  tone = "night",
 }: {
   samples: AltitudeSample[];
   minutes: number;
   showSun: boolean;
   showMoon: boolean;
+  tone?: ChromeTone;
 }) {
+  const parchment = tone === "parchment";
   if (samples.length < 2) return null;
   const width = 100;
   const height = 44;
@@ -43,7 +47,7 @@ export function AltitudeSparkline({
         x2={width}
         y1={y(0)}
         y2={y(0)}
-        stroke="rgba(255,255,255,0.28)"
+        stroke={parchment ? "rgba(58,36,18,0.35)" : "rgba(255,255,255,0.28)"}
         strokeWidth="1"
         vectorEffect="non-scaling-stroke"
       />
@@ -51,7 +55,7 @@ export function AltitudeSparkline({
         <path
           d={line("moonAltitude")}
           fill="none"
-          stroke={MOON_ARC_COLOR}
+          stroke={parchment ? "#8a6a45" : MOON_ARC_COLOR}
           strokeWidth="1.25"
           vectorEffect="non-scaling-stroke"
           opacity="0.75"
@@ -61,7 +65,7 @@ export function AltitudeSparkline({
         <path
           d={line("sunAltitude")}
           fill="none"
-          stroke="#ffe38a"
+          stroke={parchment ? "#5c3b1e" : "#ffe38a"}
           strokeWidth="1.5"
           vectorEffect="non-scaling-stroke"
         />
@@ -71,7 +75,7 @@ export function AltitudeSparkline({
         x2={playhead}
         y1="0"
         y2={height}
-        stroke="#f7f3ea"
+        stroke={parchment ? "#2b190d" : "#f7f3ea"}
         strokeWidth="1"
         vectorEffect="non-scaling-stroke"
       />

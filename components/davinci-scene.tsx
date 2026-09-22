@@ -1,7 +1,7 @@
 "use client";
 
 import { Html, Line, OrbitControls } from "@react-three/drei";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   type ComponentRef,
   type RefObject,
@@ -18,6 +18,7 @@ import {
   davinciFragmentShader,
   davinciVertexShader,
 } from "@/lib/davinci-shader";
+import type { LayoutInsets } from "@/lib/layout-insets";
 import {
   DISC_RADIUS,
   SKY_RADIUS,
@@ -35,6 +36,7 @@ const INK = "#3a2412";
 const PAPER = "#dfcdad";
 const LOOK_TARGET = new THREE.Vector3(0, 0.75, 0);
 const HOME_DIRECTION = new THREE.Vector3(5.15, 2.8, 6.35).normalize();
+const DEG = Math.PI / 180;
 
 const APPLIANCE_POINTS = (() => {
   const points: THREE.Vector3[] = [];
@@ -73,6 +75,10 @@ export interface DavinciSceneProps {
   moonArc: SkyPath;
   showSun: boolean;
   showMoon: boolean;
+  followHeading: boolean;
+  deviceHeading: number | null;
+  resetSignal: number;
+  layoutInsets: LayoutInsets;
 }
 
 export function DavinciScene({
@@ -84,6 +90,10 @@ export function DavinciScene({
   moonArc,
   showSun,
   showMoon,
+  followHeading,
+  deviceHeading,
+  resetSignal,
+  layoutInsets,
 }: DavinciSceneProps) {
   const reducedMotion = usePrefersReducedMotion();
 
@@ -112,6 +122,10 @@ export function DavinciScene({
         moonArc={moonArc}
         showSun={showSun}
         showMoon={showMoon}
+        followHeading={followHeading}
+        deviceHeading={deviceHeading}
+        resetSignal={resetSignal}
+        layoutInsets={layoutInsets}
         reducedMotion={reducedMotion}
       />
     </Canvas>
@@ -126,50 +140,80 @@ function InkInstrument({
   moonArc,
   showSun,
   showMoon,
+  followHeading,
+  deviceHeading,
+  resetSignal,
+  layoutInsets,
   reducedMotion,
 }: Omit<DavinciSceneProps, "active"> & { reducedMotion: boolean }) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
+  const headingGroup = useRef<THREE.Group>(null);
   const sunLight = useMemo(() => rakeFromBearing(sun.position), [sun.position]);
   const moonLight = useMemo(
     () => lightFromSun(moon.position, sun.position),
     [moon.position, sun.position],
   );
 
+  useEffect(() => {
+    if (!followHeading) return;
+    const orbit = controls.current;
+    if (!orbit) return;
+    orbit.setAzimuthalAngle(0);
+    orbit.update();
+  }, [followHeading]);
+
+  useFrame(() => {
+    const group = headingGroup.current;
+    if (!group) return;
+    if (followHeading && deviceHeading !== null) {
+      group.rotation.y = -deviceHeading * DEG;
+      return;
+    }
+    group.rotation.y = 0;
+  });
+
   return (
     <>
-      <InkCompass />
-      {showSun && <InkHorizon horizon={horizon} />}
-      {showSun &&
-        arcs.map((arc) => <InkSkyArc key={arc.id} arc={arc} variant={arc.id} />)}
-      {showMoon && <InkSkyArc arc={moonArc} variant="moon" />}
-      {showSun && (
-        <InkOrb
-          position={sun.position}
-          radius={sun.aboveHorizon ? (sun.altitude < 8 ? 0.4 : 0.46) : 0.32}
-          light={sunLight}
-        />
-      )}
-      {showMoon && (
-        <InkOrb
-          position={moon.position}
-          radius={moon.aboveHorizon ? 0.4 : 0.3}
-          light={moonLight}
-        />
-      )}
+      <group ref={headingGroup}>
+        <InkCompass />
+        {showSun && <InkHorizon horizon={horizon} />}
+        {showSun &&
+          arcs.map((arc) => <InkSkyArc key={arc.id} arc={arc} variant={arc.id} />)}
+        {showMoon && <InkSkyArc arc={moonArc} variant="moon" />}
+        {showSun && (
+          <InkOrb
+            position={sun.position}
+            radius={sun.aboveHorizon ? (sun.altitude < 8 ? 0.4 : 0.46) : 0.32}
+            light={sunLight}
+          />
+        )}
+        {showMoon && (
+          <InkOrb
+            position={moon.position}
+            radius={moon.aboveHorizon ? 0.4 : 0.3}
+            light={moonLight}
+          />
+        )}
+      </group>
       <OrbitControls
         ref={controls}
         enableDamping={!reducedMotion}
         dampingFactor={0.08}
         enablePan
-        minDistance={4}
+        enableRotate={!followHeading}
+        minDistance={3.4}
         maxDistance={48}
-        minPolarAngle={0.2}
-        maxPolarAngle={Math.PI * 0.5}
+        minPolarAngle={0.12}
+        maxPolarAngle={Math.PI * 0.56}
         target={[0, 0.75, 0]}
         zoomSpeed={0.7}
         rotateSpeed={reducedMotion ? 0.9 : 0.75}
       />
-      <FrameCamera controls={controls} />
+      <FrameCamera
+        resetSignal={resetSignal}
+        controls={controls}
+        layoutInsets={layoutInsets}
+      />
     </>
   );
 }
@@ -446,9 +490,13 @@ function InkStroke({
 }
 
 function FrameCamera({
+  resetSignal,
   controls,
+  layoutInsets,
 }: {
+  resetSignal: number;
   controls: RefObject<ComponentRef<typeof OrbitControls> | null>;
+  layoutInsets: LayoutInsets;
 }) {
   const camera = useThree((state) => state.camera);
   const size = useThree((state) => state.size);
@@ -457,7 +505,7 @@ function FrameCamera({
     if (!(camera instanceof THREE.PerspectiveCamera)) return;
     if (size.width < 2 || size.height < 2) return;
 
-    const inset = parchmentInsets(size.width, size.height);
+    const inset = layoutInsets;
     camera.setViewOffset(
       size.width,
       size.height,
@@ -501,26 +549,19 @@ function FrameCamera({
       else near = mid;
     }
 
-    place(far * 1.06);
+    place(far * 1.04);
     camera.updateProjectionMatrix();
 
     const orbit = controls.current;
     if (!orbit) return;
     orbit.target.copy(LOOK_TARGET);
-    orbit.minDistance = 4;
+    orbit.minDistance = 3.4;
     orbit.maxDistance = Math.max(48, far * 1.7);
     orbit.update();
-  }, [camera, controls, size.height, size.width]);
+    orbit.saveState();
+  }, [camera, controls, layoutInsets, resetSignal, size.height, size.width]);
 
   return null;
-}
-
-function parchmentInsets(width: number, height: number) {
-  const narrow = width < 640;
-  const top = Math.min(narrow ? 96 : 156, Math.max(72, height * 0.3));
-  const bottom = Math.min(124, Math.max(88, height * 0.24));
-  const side = narrow ? 18 : 40;
-  return { left: side, right: side, top, bottom };
 }
 
 function strokeStyle(variant: SolarArc["id"] | "moon", emphasized: boolean) {
