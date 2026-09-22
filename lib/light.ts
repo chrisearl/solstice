@@ -86,6 +86,7 @@ export function phaseTrackStyle(
   times: SolarDayTimes,
   longitude: number,
   tone: ChromeTone = "night",
+  rangeMinutes = 1440,
 ): { backgroundColor: string; backgroundImage: string } {
   const palette = tone === "parchment" ? PARCHMENT_PHASE_COLORS : PHASE_COLORS;
   if (times.alwaysDown) {
@@ -98,8 +99,9 @@ export function phaseTrackStyle(
     return { backgroundColor: palette.night, backgroundImage: "none" };
   }
   const stops = samples.map((sample) => {
-    const phase = resolveSunLightingPhase(sample.minute, times, sample.sunAltitude, longitude);
-    const pct = Math.min(100, Math.max(0, (sample.minute / 1440) * 100));
+    const dayMinute = sample.dayMinute ?? sample.minute;
+    const phase = resolveSunLightingPhase(dayMinute, times, sample.sunAltitude, longitude);
+    const pct = Math.min(100, Math.max(0, (sample.minute / rangeMinutes) * 100));
     return `${palette[phase.id]} ${pct.toFixed(2)}%`;
   });
   return {

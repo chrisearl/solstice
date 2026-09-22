@@ -135,6 +135,10 @@ export interface HorizonMarks {
 
 export interface AltitudeSample {
   minute: number;
+  /** Mean-solar minute within the day when the sample spans multiple days. */
+  dayMinute?: number;
+  year?: number;
+  dayIndex?: number;
   sunAltitude: number;
   moonAltitude: number;
 }

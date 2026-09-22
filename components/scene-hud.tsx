@@ -107,7 +107,7 @@ export function SceneHud(props: SceneHudProps) {
   }
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 px-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] md:px-4 lg:px-5">
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 px-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] pr-[7.5rem] md:px-4 md:pr-[8.5rem] lg:px-5 lg:pr-[9rem]">
       <div className="flex items-start justify-between gap-2">
         <div className="pointer-events-auto flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
