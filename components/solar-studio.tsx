@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { PanelLeftOpen } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ControlPanel, StatRail } from "@/components/control-panel";
 import { InspectorPanel } from "@/components/inspector-panel";
 import { SceneHud } from "@/components/scene-hud";
@@ -13,7 +13,7 @@ import {
 } from "@/hooks/use-device-orientation";
 import { useInspectorLayout, useLayout } from "@/hooks/use-layout";
 import type { ParsedView } from "@/lib/view-query";
-import { serializeViewQuery } from "@/lib/view-query";
+import { serializeViewQuery, viewHistoryState } from "@/lib/view-query";
 import {
   ORLANDO,
   altitudeSamples,
@@ -154,27 +154,83 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   );
 
   const roundedMinute = ((Math.round(minutes) % 1440) + 1440) % 1440;
+  const viewRef = useRef({
+    latitude,
+    longitude,
+    date: model.date,
+    minutes: roundedMinute,
+    objectHeight,
+  });
+  viewRef.current = {
+    latitude,
+    longitude,
+    date: model.date,
+    minutes: roundedMinute,
+    objectHeight,
+  };
+  const syncUrlRef = useRef<() => void>(() => {});
 
   useEffect(() => {
+    const minGapMs = 500;
+    let lastWrite = 0;
+    let pending: number | null = null;
+
     const write = () => {
-      const query = serializeViewQuery({
-        latitude,
-        longitude,
-        date: model.date,
-        minutes: roundedMinute,
-        objectHeight,
-      });
+      const query = serializeViewQuery(viewRef.current);
       const next = `?${query}`;
-      if (window.location.search !== next) {
-        window.history.replaceState(null, "", next);
+      if (window.location.search === next) return;
+      const state = viewHistoryState(window.history.state);
+      if (!state) return;
+      try {
+        window.history.replaceState(state, "", next);
+      } catch {
+        // Safari throws SecurityError after 100 replaceState calls in 30s.
       }
     };
-    if (playing) {
+
+    const sync = () => {
+      const wait = minGapMs - (performance.now() - lastWrite);
+      if (wait <= 0) {
+        if (pending !== null) {
+          window.clearTimeout(pending);
+          pending = null;
+        }
+        lastWrite = performance.now();
+        write();
+        return;
+      }
+      if (pending !== null) return;
+      pending = window.setTimeout(() => {
+        pending = null;
+        lastWrite = performance.now();
+        write();
+      }, wait);
+    };
+
+    const flush = () => {
+      if (pending !== null) {
+        window.clearTimeout(pending);
+        pending = null;
+      }
+      lastWrite = performance.now();
       write();
-      const id = window.setInterval(write, 250);
-      return () => window.clearInterval(id);
-    }
-    write();
+    };
+
+    syncUrlRef.current = sync;
+    const interval = window.setInterval(sync, minGapMs);
+    sync();
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("pagehide", flush);
+      syncUrlRef.current = () => {};
+      flush();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (playing) return;
+    syncUrlRef.current();
   }, [playing, latitude, longitude, model.date, roundedMinute, objectHeight]);
 
   const applyLatitude = (value: string) => {

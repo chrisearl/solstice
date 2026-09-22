@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { getPosition, getTimes } from "suncalc";
 import { seasonInstants } from "../lib/seasons.ts";
-import { parseViewQuery, serializeViewQuery } from "../lib/view-query.ts";
+import { parseViewQuery, serializeViewQuery, viewHistoryState } from "../lib/view-query.ts";
 import {
   altitudeSamples,
   azimuthInFan,
@@ -257,6 +257,15 @@ test("view query round-trips place, date, time, and height", () => {
   assert.equal(partial.latitude, undefined);
   assert.equal(partial.year, 2026);
   assert.ok(partial.dayIndex != null);
+});
+
+test("view url updates reuse the app-router history entry", () => {
+  const entry = { __NA: true, __PRIVATE_NEXTJS_INTERNALS_TREE: { renderedSearch: "" } };
+  assert.equal(viewHistoryState(entry), entry);
+  assert.equal(viewHistoryState(null), null);
+  assert.equal(viewHistoryState(undefined), null);
+  assert.equal(viewHistoryState({}), null);
+  assert.equal(viewHistoryState({ __NA: false }), null);
 });
 
 test("2026 season instants match the USNO calendar days", () => {

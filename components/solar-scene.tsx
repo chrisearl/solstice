@@ -738,9 +738,10 @@ function createMoonPhaseTexture(fraction: number, waxing: boolean) {
 
 function MoonBody({ moon }: { moon: MoonPlacement }) {
   const glow = useRef<THREE.Sprite>(null);
+  const fractionStep = Math.round(moon.fraction * 100) / 100;
   const texture = useMemo(
-    () => createMoonPhaseTexture(moon.fraction, moon.waxing),
-    [moon.fraction, moon.waxing],
+    () => createMoonPhaseTexture(fractionStep, moon.waxing),
+    [fractionStep, moon.waxing],
   );
   const glowTexture = useMemo(() => {
     const canvas = document.createElement("canvas");

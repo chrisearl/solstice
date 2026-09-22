@@ -76,3 +76,17 @@ export function serializeViewQuery(view: {
   params.set("h", trimNumber(view.objectHeight));
   return params.toString();
 }
+
+/**
+ * History state to reuse when the address bar should change without a navigation.
+ * Next.js patches `history.replaceState` and, for any state it does not already
+ * own, dispatches an App Router restore. This page reads `searchParams`, so that
+ * restore refetches the document. Playback rewrites the query many times a
+ * second; those refetches fail the tab on iOS ("This page couldn't load").
+ * Reusing the current `__NA` entry updates the query string only.
+ */
+export function viewHistoryState(current: unknown): object | null {
+  if (!current || typeof current !== "object") return null;
+  if (!("__NA" in current) || (current as { __NA?: unknown }).__NA !== true) return null;
+  return current;
+}
