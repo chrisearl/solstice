@@ -7,5 +7,7 @@ export default async function Home({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  return <SolarStudio initial={parseViewQuery(params)} />;
+  // One instant for the server HTML and the client's first render. The studio
+  // snaps to the browser clock after hydration.
+  return <SolarStudio initial={parseViewQuery(params)} now={Date.now()} />;
 }

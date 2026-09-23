@@ -45,10 +45,10 @@ import {
   type SolarClock,
 } from "@/lib/timeline";
 
-export function useSolarView(initial?: ParsedView) {
+export function useSolarView(initial: ParsedView | undefined, now: number) {
   const stageRef = useRef<HTMLDivElement>(null);
   const bootLongitude = initial?.longitude ?? ORLANDO.lng;
-  const [clock, setClock] = useState(() => clockFromInstant(new Date(), bootLongitude));
+  const [clock, setClock] = useState(() => clockFromInstant(new Date(now), bootLongitude));
   const clockRef = useRef(clock);
   const { year, dayIndex, minutes } = clock;
   const [playing, setPlaying] = useState(false);

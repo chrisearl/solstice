@@ -41,8 +41,8 @@ const DavinciOrreryView = dynamic(() => import("@/components/davinci-orrery-view
   loading: () => <ScenePlaceholder />,
 });
 
-export function SolarStudio({ initial }: { initial?: ParsedView }) {
-  const viewState = useSolarView(initial);
+export function SolarStudio({ initial, now }: { initial?: ParsedView; now: number }) {
+  const viewState = useSolarView(initial, now);
   const {
     stageRef,
     motion,
