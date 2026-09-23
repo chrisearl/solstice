@@ -23,6 +23,7 @@ export const davinciFragmentShader = `
   uniform vec3 uPaperColor;
   uniform float uHatchDensity;
   uniform float uLineWeight;
+  uniform float uIsLightSource;
 
   varying vec3 vNormal;
   varying vec3 vViewNormal;
@@ -40,7 +41,9 @@ export const davinciFragmentShader = `
     vec3 L = normalize(uLightDirection);
 
     float nDotL = dot(N, L);
-    float light = clamp(nDotL * 0.5 + 0.5, 0.0, 1.0);
+    float light = uIsLightSource > 0.5
+      ? 1.0
+      : clamp(nDotL * 0.5 + 0.5, 0.0, 1.0);
 
     vec2 hatchCoords = vLocalPosition.xy * uHatchDensity * 0.15;
     float wobble = sin(hatchCoords.y * 3.0 + hatchCoords.x * 2.0) * 0.12 * (uLineWeight * 0.5);
