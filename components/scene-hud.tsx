@@ -165,7 +165,7 @@ export function SceneHud(props: SceneHudProps) {
 
   return (
     <div
-      className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 px-3 ${hudTopClass} pr-[7.5rem] md:px-4 md:pr-[8.5rem]`}
+      className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 px-3 ${hudTopClass} md:px-4`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="pointer-events-auto flex min-w-0 flex-1 flex-col gap-2">
@@ -647,7 +647,7 @@ function OrrerySceneHud(props: SceneHudProps) {
 
   return (
     <div
-      className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 px-3 ${hudTopClass} pr-[7.5rem] md:px-4 md:pr-[8.5rem]`}
+      className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 px-3 ${hudTopClass} md:px-4`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="pointer-events-auto flex min-w-0 flex-1 flex-col gap-2">

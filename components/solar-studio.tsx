@@ -212,6 +212,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
         parchment ? "bg-[#dfcdad]" : "bg-[#07080d]"
       }`}
     >
+      {parchment && <div className="davinci-parchment-bg" aria-hidden="true" />}
       <div
         className={`absolute inset-0 ${nightAstrolabe ? "" : "invisible"}`}
         inert={nightAstrolabe ? undefined : true}
@@ -503,8 +504,9 @@ function OrreryPlaceholder() {
 
 function DavinciPlaceholder() {
   return (
-    <div className="flex h-full w-full items-center justify-center bg-[#dfcdad] text-[#5c3b1e]">
-      <p className="text-lg italic">Tracing the codex</p>
+    <div className="relative flex h-full w-full items-center justify-center text-[#5c3b1e]">
+      <div className="davinci-parchment-bg" aria-hidden="true" />
+      <p className="relative z-[1] text-lg italic">Tracing the codex</p>
     </div>
   );
 }
