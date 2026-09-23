@@ -1,4 +1,7 @@
+import { daysSinceJ2000 } from "./orrery.ts";
 import { dayIndexFromUtcDate, PRESETS } from "./solar.ts";
+
+const J2000_JD = 2451545.0;
 
 const CARDINALS = [
   "N",
@@ -185,4 +188,28 @@ const SEASON_LABELS = {
 
 export function formatEarthSeason(season: keyof typeof SEASON_LABELS): string {
   return SEASON_LABELS[season];
+}
+
+export function julianDate(instant: Date): number {
+  if (Number.isNaN(instant.getTime())) return NaN;
+  return daysSinceJ2000(instant) + J2000_JD;
+}
+
+export function formatJulianDate(instant: Date): string {
+  const jd = julianDate(instant);
+  if (!Number.isFinite(jd)) return "—";
+  return `JD ${jd.toFixed(2)}`;
+}
+
+export function formatDeltaJ2000(instant: Date): string {
+  if (Number.isNaN(instant.getTime())) return "—";
+  const days = daysSinceJ2000(instant);
+  const sign = days >= 0 ? "+" : "";
+  return `ΔJ2000 ${sign}${days.toFixed(1)} d`;
+}
+
+export function formatHeliocentricLongitude(longitudeDeg: number): string {
+  if (!Number.isFinite(longitudeDeg)) return "—";
+  const wrapped = ((longitudeDeg % 360) + 360) % 360;
+  return `λ☉ ${wrapped.toFixed(1)}°`;
 }

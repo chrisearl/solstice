@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  formatDeltaJ2000,
+  formatHeliocentricLongitude,
+  formatJulianDate,
+  julianDate,
+} from "../lib/format.ts";
+import {
   ALL_PLANET_IDS,
   buildOrreryModel,
   buildOrbitPaths,
@@ -99,6 +105,17 @@ test("all planets have positive heliocentric distances", () => {
     assert.ok(body.distanceAu > 0, `${id} distance should be positive`);
     assert.ok(Number.isFinite(body.heliocentricLongitudeDeg));
   }
+});
+
+test("Julian date at J2000.0 noon is 2451545.0", () => {
+  const j2000 = new Date(Date.UTC(2000, 0, 1, 12, 0, 0));
+  assert.strictEqual(julianDate(j2000), 2451545.0);
+  assert.strictEqual(formatJulianDate(j2000), "JD 2451545.00");
+  assert.strictEqual(formatDeltaJ2000(j2000), "ΔJ2000 +0.0 d");
+});
+
+test("heliocentric longitude formatter wraps degrees", () => {
+  assert.strictEqual(formatHeliocentricLongitude(370), "λ☉ 10.0°");
 });
 
 test("heliocentric longitude helper matches body placement", () => {
