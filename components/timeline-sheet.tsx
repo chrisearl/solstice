@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronUp, Clock, Gauge, Pause, Play } from "lucide-react";
+import { ChevronUp, Clock, Gauge, Pause, Play, Repeat } from "lucide-react";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { AltitudeSparkline } from "@/components/altitude-sparkline";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ export type TimelineSheetState = "peek" | "open";
 
 interface TimelineSheetProps {
   playing: boolean;
+  loopDay: boolean;
   speed: PlaybackSpeed;
   samples: AltitudeSample[];
   times: SolarDayTimes;
@@ -43,6 +44,7 @@ interface TimelineSheetProps {
   tone?: ChromeTone;
   onMinutes: (value: number) => void;
   onPlaying: (value: boolean) => void;
+  onLoopDay: (value: boolean) => void;
   onSpeed: (speed: PlaybackSpeed) => void;
 }
 
@@ -130,6 +132,17 @@ export function TimelineSheet(props: TimelineSheetProps) {
           onClick={() => props.onPlaying(!props.playing)}
         >
           {props.playing ? <Pause /> : <Play />}
+        </Button>
+        <Button
+          type="button"
+          size="icon"
+          variant="outline"
+          className={`size-10 shrink-0 border-white/10 bg-white/5 text-white hover:bg-white/10 ${props.loopDay ? "border-[#f0b429]/40 bg-[#f0b429]/15 text-[#f0b429]" : ""}`}
+          aria-pressed={props.loopDay}
+          aria-label={props.loopDay ? "Day loop on" : "Day loop off"}
+          onClick={() => props.onLoopDay(!props.loopDay)}
+        >
+          <Repeat className={props.loopDay ? "size-4" : "size-4 opacity-70"} />
         </Button>
         <Button
           type="button"
