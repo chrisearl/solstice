@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { PanelLeftOpen } from "lucide-react";
 import { useMemo, useState } from "react";
+import { AssumedControl } from "@/components/assumed-control";
 import { ControlPanel } from "@/components/control-panel";
 import { InspectorPanel } from "@/components/inspector-panel";
 import { SceneHud } from "@/components/scene-hud";
@@ -13,6 +14,7 @@ import { ViewSwitcher } from "@/components/view-switcher";
 import { useInspectorLayout, useLayout } from "@/hooks/use-layout";
 import { useDavinciUnlocked } from "@/hooks/use-davinci-unlock";
 import { useSolarView } from "@/hooks/use-solar-view";
+import { isAssumedControlDay } from "@/lib/assumed-control";
 import type { BodyId } from "@/lib/orrery";
 import { STUDIO_CHROME_TOP_CLASS } from "@/lib/layout-insets";
 import { resolveStudioView } from "@/lib/studio-view";
@@ -331,6 +333,10 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
             )}
           </GuardedScene>
         </div>
+      )}
+
+      {isAssumedControlDay(year, dayIndex) && (
+        <AssumedControl tone={parchment ? "parchment" : "night"} />
       )}
 
       <div

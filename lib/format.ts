@@ -93,7 +93,7 @@ export function parseIsoDate(iso: string): { year: number; dayIndex: number } | 
   const year = Number(match[1]);
   const month = Number(match[2]) - 1;
   const day = Number(match[3]);
-  if (year < 1900 || year > 2100) return null;
+  if (year < 1900 || year > 2112) return null;
   const date = new Date(Date.UTC(year, month, day));
   if (
     date.getUTCFullYear() !== year ||

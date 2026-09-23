@@ -10,7 +10,7 @@ export const DAY_MINUTES = 1440;
 
 /** Date-input bounds. Playback pauses instead of leaving this range. */
 export const SOLAR_YEAR_MIN = 1900;
-export const SOLAR_YEAR_MAX = 2100;
+export const SOLAR_YEAR_MAX = 2112;
 
 /** Mean calendar lengths for constant-rate playback across year boundaries. */
 const DAYS_PER_MONTH = 365.25 / 12;
@@ -158,7 +158,7 @@ function shiftDays(clock: SolarClock, dayDelta: number): SolarClock | null {
 
 /**
  * Move a mean-solar clock by `deltaMinutes`, rolling the calendar date at midnight.
- * A step that would leave 1900-01-01 .. 2100-12-31 is refused: the clock stays put
+ * A step that would leave 1900-01-01 .. 2112-12-31 is refused: the clock stays put
  * and `blocked` is true so playback can pause.
  */
 export function advanceSolarClock(

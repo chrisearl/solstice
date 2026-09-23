@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Caveat, Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { AppProviders } from "@/components/app-providers";
 import "./globals.css";
@@ -20,6 +20,12 @@ const instrument = Instrument_Serif({
   weight: "400",
 });
 
+const caveat = Caveat({
+  variable: "--font-caveat",
+  subsets: ["latin"],
+  weight: "500",
+});
+
 export const metadata: Metadata = {
   title: "Solstice — Sun path",
   description:
@@ -36,7 +42,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${instrument.variable} dark h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${instrument.variable} ${caveat.variable} dark h-full antialiased`}
     >
       <body className="h-full overflow-hidden bg-[#07080d] text-[#f3efe6]">
         <AppProviders>{children}</AppProviders>

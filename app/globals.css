@@ -10,6 +10,7 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-instrument);
+  --font-hand: var(--font-caveat);
   --font-heading: var(--font-instrument);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -302,6 +303,175 @@ input[type="time"] {
   background-color: #4a2f18;
   box-shadow: none;
   outline-color: rgba(244, 232, 209, 0.95);
+}
+
+.assumed-control-glitch {
+  position: relative;
+  max-width: 40rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: clamp(1.15rem, 3.4vw, 2rem);
+  letter-spacing: 0.06em;
+  line-height: 1.35;
+  color: #39ff14;
+  text-shadow:
+    0 0 10px rgba(57, 255, 20, 0.55),
+    0 0 28px rgba(57, 255, 20, 0.28);
+  animation: assumed-control-flicker 3.2s steps(1, end) infinite;
+}
+
+.assumed-control-glitch::before,
+.assumed-control-glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.assumed-control-glitch::before {
+  color: #67e8f9;
+  text-shadow: -2px 0 #67e8f9;
+  animation: assumed-control-glitch-a 2.2s steps(1, end) infinite;
+}
+
+.assumed-control-glitch::after {
+  color: #f472b6;
+  text-shadow: 2px 0 #f472b6;
+  animation: assumed-control-glitch-b 1.7s steps(1, end) infinite;
+}
+
+.assumed-control-scanlines {
+  position: absolute;
+  inset: -0.12em -0.35em;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0 2px,
+    rgba(0, 0, 0, 0.38) 2px 3px
+  );
+  mix-blend-mode: multiply;
+}
+
+.assumed-control-ink {
+  position: relative;
+  max-width: 42rem;
+  font-family: var(--font-caveat), "Segoe Script", cursive;
+  font-size: clamp(2rem, 6vw, 3.4rem);
+  line-height: 1.15;
+  color: #3a2310;
+}
+
+.assumed-control-ink-glyph {
+  display: inline-block;
+  opacity: 0;
+  filter: blur(1.4px);
+  animation: assumed-control-ink-write 0.38s ease forwards;
+}
+
+.assumed-control-nib {
+  position: absolute;
+  bottom: 0.18em;
+  left: 0;
+  width: 0.28em;
+  height: 0.28em;
+  border-radius: 999px;
+  background: #3a2310;
+  box-shadow: 0 0 0 0.18em rgba(58, 35, 16, 0.12);
+  animation: assumed-control-nib linear forwards;
+}
+
+@keyframes assumed-control-flicker {
+  0%,
+  90%,
+  100% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 0.55;
+  }
+  94% {
+    opacity: 1;
+  }
+  97% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes assumed-control-glitch-a {
+  0%,
+  48%,
+  100% {
+    clip-path: inset(0 0 100% 0);
+    transform: translate(0);
+  }
+  12% {
+    clip-path: inset(8% 0 62% 0);
+    transform: translate(-3px, 1px);
+  }
+  24% {
+    clip-path: inset(68% 0 6% 0);
+    transform: translate(3px, -1px);
+  }
+  36% {
+    clip-path: inset(42% 0 38% 0);
+    transform: translate(-2px, 0);
+  }
+}
+
+@keyframes assumed-control-glitch-b {
+  0%,
+  60%,
+  100% {
+    clip-path: inset(0 0 100% 0);
+    transform: translate(0);
+  }
+  18% {
+    clip-path: inset(54% 0 18% 0);
+    transform: translate(2px, 1px);
+  }
+  32% {
+    clip-path: inset(4% 0 78% 0);
+    transform: translate(-3px, -1px);
+  }
+  46% {
+    clip-path: inset(30% 0 48% 0);
+    transform: translate(2px, 0);
+  }
+}
+
+@keyframes assumed-control-ink-write {
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes assumed-control-nib {
+  from {
+    left: 0;
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  to {
+    left: calc(100% - 0.28em);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assumed-control-glitch,
+  .assumed-control-ink-glyph {
+    animation: none;
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+
+  .assumed-control-glitch::before,
+  .assumed-control-glitch::after,
+  .assumed-control-nib {
+    display: none;
+  }
 }
 
 .davinci-parchment-bg {
