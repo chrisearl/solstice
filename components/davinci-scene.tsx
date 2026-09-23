@@ -80,22 +80,21 @@ export function DavinciScene({
 
   return (
     <Canvas
-      className="absolute inset-0"
+      className="absolute inset-0 z-[1]"
       camera={{ position: [10.8, 6.4, 13.2], fov: 38, near: 0.1, far: 200 }}
       dpr={[1, 2]}
       frameloop={active ? "always" : "never"}
       gl={{
         antialias: true,
-        alpha: false,
+        alpha: true,
         powerPreference: "high-performance",
       }}
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.NoToneMapping;
-        gl.setClearColor(PAPER);
+        gl.setClearColor(0x000000, 0);
         watchContextLoss(gl.domElement, onContextLost);
       }}
     >
-      <color attach="background" args={[PAPER]} />
       <InkInstrument
         arcs={arcs}
         horizon={horizon}

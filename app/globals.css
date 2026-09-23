@@ -304,16 +304,15 @@ input[type="time"] {
   outline-color: rgba(244, 232, 209, 0.95);
 }
 
-.davinci-paper {
+.davinci-parchment-bg {
   pointer-events: none;
   position: absolute;
   inset: 0;
-  z-index: 2;
-  opacity: 0.35;
-  background-image:
-    radial-gradient(#a38258 0.75px, transparent 0.75px),
-    radial-gradient(#6e4d29 0.5px, #d7c29e 0.5px);
-  background-size: 30px 30px, 90px 90px;
-  background-position: 0 0, 15px 15px;
-  mix-blend-mode: multiply;
+  z-index: 0;
+  background-color: #dfcdad;
+  background-image: url("/davinci-parchment.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
