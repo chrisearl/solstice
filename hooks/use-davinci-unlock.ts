@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import {
   advanceKonamiSequence,
   isKonamiButtonStep,
@@ -16,15 +16,22 @@ import {
   type KonamiStep,
 } from "@/lib/davinci-unlock";
 
+const unlockListeners = new Set<() => void>();
+
+function subscribeUnlock(onChange: () => void) {
+  unlockListeners.add(onChange);
+  return () => unlockListeners.delete(onChange);
+}
+
+function notifyUnlock() {
+  unlockListeners.forEach((listener) => listener());
+}
+
 export function useDavinciUnlock() {
-  const [davinciUnlocked, setDavinciUnlocked] = useState(false);
+  const davinciUnlocked = useSyncExternalStore(subscribeUnlock, readDavinciUnlocked, () => false);
   const indexRef = useRef(0);
   const timeoutRef = useRef<number | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-
-  useEffect(() => {
-    setDavinciUnlocked(readDavinciUnlocked());
-  }, []);
 
   const resetSequence = useCallback(() => {
     indexRef.current = 0;
@@ -36,7 +43,7 @@ export function useDavinciUnlock() {
 
   const unlock = useCallback(() => {
     writeDavinciUnlocked();
-    setDavinciUnlocked(true);
+    notifyUnlock();
     resetSequence();
   }, [resetSequence]);
 

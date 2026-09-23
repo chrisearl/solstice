@@ -61,10 +61,6 @@ export function useInspectorLayout() {
     inspectorState !== "closed" || (inspectorPinned && (breakpoint === "desktop" || breakpoint === "large"));
 
   const toggleInspector = () => {
-    if (breakpoint === "mobile") {
-      setInspectorState((state) => (state === "closed" ? "open" : "closed"));
-      return;
-    }
     setInspectorState((state) => (state === "closed" ? "open" : "closed"));
   };
 
@@ -79,7 +75,6 @@ export function useInspectorLayout() {
     inspectorPinned,
     inspectorOpen,
     setInspectorState,
-    setInspectorPinned,
     toggleInspector,
     closeInspector,
   };

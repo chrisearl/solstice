@@ -4,7 +4,7 @@ import {
   parseCoordinate,
   parseIsoDate,
   timeValueToMinutes,
-} from "./solar.ts";
+} from "./format.ts";
 
 export interface ParsedView {
   latitude?: number;
@@ -12,7 +12,6 @@ export interface ParsedView {
   year?: number;
   dayIndex?: number;
   minutes?: number;
-  objectHeight?: number;
 }
 
 type QueryValue = string | string[] | undefined;
@@ -48,11 +47,6 @@ export function parseViewQuery(params: Record<string, QueryValue>): ParsedView {
     const value = timeValueToMinutes(time);
     if (value !== null) parsed.minutes = value;
   }
-  const height = first(params, "h");
-  if (height !== undefined && /^-?\d+(\.\d+)?$/.test(height.trim())) {
-    const value = Number(height);
-    if (value >= 0.1 && value <= 100) parsed.objectHeight = value;
-  }
   return parsed;
 }
 
@@ -65,7 +59,6 @@ export function serializeViewQuery(view: {
   longitude: number;
   date: Date;
   minutes: number;
-  objectHeight: number;
 }): string {
   const minutes = ((Math.round(view.minutes) % 1440) + 1440) % 1440;
   const params = new URLSearchParams();
@@ -73,7 +66,6 @@ export function serializeViewQuery(view: {
   params.set("lng", trimNumber(view.longitude));
   params.set("date", isoFromDate(view.date));
   params.set("time", minutesToTimeValue(minutes));
-  params.set("h", trimNumber(view.objectHeight));
   return params.toString();
 }
 

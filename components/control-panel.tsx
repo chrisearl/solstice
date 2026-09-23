@@ -14,9 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import type { ChromeTone } from "@/lib/light";
 import {
-  PRESETS,
   coordinateStatus,
   formatAzimuth,
   formatDegrees,
@@ -26,10 +24,12 @@ import {
   formatShadow,
   isoFromDate,
   locationLabel,
+} from "@/lib/format";
+import {
+  PRESETS,
   seekMinute,
   shadowLengthMeters,
   MOON_ARC_COLOR,
-  type AltitudeSample,
   type MoonModel,
   type MoonPlacement,
   type SolarArc,
@@ -47,16 +47,13 @@ interface ControlPanelProps {
   latText: string;
   lngText: string;
   minutes: number;
-  playing: boolean;
   dayIndex: number;
   dayCount: number;
   showSun: boolean;
   showMoon: boolean;
-  samples: AltitudeSample[];
   locating: boolean;
   geoError: string | null;
   compactHeader?: boolean;
-  tone?: ChromeTone;
   onLatText: (value: string) => void;
   onLngText: (value: string) => void;
   onPreset: (lat: number, lng: number) => void;
@@ -64,7 +61,6 @@ interface ControlPanelProps {
   onDayIndex: (value: number) => void;
   onDate: (iso: string) => void;
   onMinutes: (value: number) => void;
-  onPlaying: (value: boolean) => void;
   onShowSun: (value: boolean) => void;
   onShowMoon: (value: boolean) => void;
   onResetView: () => void;
@@ -246,7 +242,6 @@ export function StatRail({
   longitude,
   showSun,
   showMoon,
-  objectHeight,
   onMinutes,
 }: {
   model: SolarModel;
@@ -256,7 +251,6 @@ export function StatRail({
   longitude: number;
   showSun: boolean;
   showMoon: boolean;
-  objectHeight: number;
   onMinutes: (value: number) => void;
 }) {
   const seek = (instant: Date | null) => seekMinute(instant, model.date, longitude);
@@ -290,8 +284,8 @@ export function StatRail({
           <Stat
             icon={<SunMedium />}
             label="Shadow"
-            value={formatShadow(shadowLengthMeters(sun.altitude, objectHeight))}
-            hint={`${objectHeight} m object`}
+            value={formatShadow(shadowLengthMeters(sun.altitude, 1))}
+            hint="1 m object"
           />
           <Stat
             icon={<Sparkles />}

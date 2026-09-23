@@ -1,17 +1,21 @@
 "use client";
 
 import { Html, Line, OrbitControls, Stars } from "@react-three/drei";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import {
   type ComponentRef,
-  type RefObject,
   Suspense,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
 } from "react";
 import * as THREE from "three";
+import { watchContextLoss } from "@/components/scene-boundary";
+import { readLiveBodies, useSolarMotion } from "@/components/solar-motion";
+import { FrameCamera } from "@/components/frame-camera";
+import { createAppliancePoints } from "@/lib/scene-framing";
 import { createCompassTexture } from "@/lib/compass-texture";
 import type { LayoutInsets } from "@/lib/layout-insets";
 import {
@@ -40,6 +44,7 @@ interface SolarSceneProps {
   resetSignal: number;
   layoutInsets: LayoutInsets;
   active?: boolean;
+  onContextLost?: () => void;
 }
 
 export default function SolarScene({
@@ -53,6 +58,7 @@ export default function SolarScene({
   resetSignal,
   layoutInsets,
   active = true,
+  onContextLost,
 }: SolarSceneProps) {
   return (
     <Canvas
@@ -62,6 +68,7 @@ export default function SolarScene({
       gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
       onCreated={({ gl }) => {
         gl.setClearColor("#07080d");
+        watchContextLoss(gl.domElement, onContextLost);
       }}
     >
       <Suspense fallback={null}>
@@ -111,22 +118,22 @@ function SceneContent({
         <ambientLight intensity={0.28} />
         <hemisphereLight args={["#24324a", "#090b10", 0.55]} />
         <directionalLight position={[6, 8, 3]} intensity={0.4} color="#d5e2f5" />
-        {showSun && sun.altitude > -2 && (
-          <pointLight
-            position={[sun.position.x, Math.max(sun.position.y, 0.2), sun.position.z]}
-            intensity={sun.aboveHorizon ? 18 : 2}
+        {showSun && (
+          <LiveLight
+            track="sun"
+            placement={sun}
+            color="#ffc98a"
             distance={28}
             decay={2}
-            color="#ffc98a"
           />
         )}
-        {showMoon && moon.aboveHorizon && (
-          <pointLight
-            position={[moon.position.x, Math.max(moon.position.y, 0.2), moon.position.z]}
-            intensity={4.5 * moon.fraction}
+        {showMoon && (
+          <LiveLight
+            track="moon"
+            placement={moon}
+            color="#d8e4f4"
             distance={22}
             decay={2}
-            color="#d8e4f4"
           />
         )}
         <CompassDisc />
@@ -139,9 +146,9 @@ function SceneContent({
         {showMoon && <SkyArc arc={moonArc} />}
         {showSun && <SunBody sun={sun} />}
         {showSun && <ShadowRig sun={sun} />}
-        {showSun && <Bearing sun={sun} color="#ffd78a" />}
+        {showSun && <Bearing track="sun" color="#ffd78a" placement={sun} />}
         {showMoon && <MoonBody moon={moon} />}
-        {showMoon && <Bearing sun={moon} color="#d8e4f4" />}
+        {showMoon && <Bearing track="moon" color="#d8e4f4" placement={moon} />}
       </group>
       <OrbitControls
         ref={controls}
@@ -157,112 +164,17 @@ function SceneContent({
         zoomSpeed={0.7}
         rotateSpeed={0.75}
       />
-      <FrameCamera resetSignal={resetSignal} controls={controls} layoutInsets={layoutInsets} />
+      <FrameCamera
+        resetSignal={resetSignal}
+        controls={controls}
+        layoutInsets={layoutInsets}
+        appliancePoints={NIGHT_APPLIANCE_POINTS}
+      />
     </>
   );
 }
 
-const LOOK_TARGET = new THREE.Vector3(0, 0.75, 0);
-const HOME_DIRECTION = new THREE.Vector3(5.15, 2.8, 6.35).normalize();
-
-/** Disc rim, seasonal arc envelope, and a little room for the arc labels. */
-const APPLIANCE_POINTS = (() => {
-  const points: THREE.Vector3[] = [];
-  for (let i = 0; i < 36; i++) {
-    const angle = (i / 36) * Math.PI * 2;
-    points.push(
-      new THREE.Vector3(Math.sin(angle) * DISC_RADIUS, 0.04, Math.cos(angle) * DISC_RADIUS),
-    );
-  }
-  for (const altitudeDeg of [25, 55, 80]) {
-    const altitude = (altitudeDeg * Math.PI) / 180;
-    const horizontal = Math.cos(altitude) * SKY_RADIUS;
-    const y = Math.sin(altitude) * SKY_RADIUS + 0.45;
-    for (let i = 0; i < 12; i++) {
-      const angle = (i / 12) * Math.PI * 2;
-      points.push(
-        new THREE.Vector3(Math.sin(angle) * horizontal, y, Math.cos(angle) * horizontal),
-      );
-    }
-  }
-  points.push(new THREE.Vector3(0, SKY_RADIUS + 0.7, 0));
-  return points;
-})();
-
-function FrameCamera({
-  resetSignal,
-  controls,
-  layoutInsets,
-}: {
-  resetSignal: number;
-  controls: RefObject<ComponentRef<typeof OrbitControls> | null>;
-  layoutInsets: LayoutInsets;
-}) {
-  const camera = useThree((state) => state.camera);
-  const size = useThree((state) => state.size);
-
-  useLayoutEffect(() => {
-    if (!(camera instanceof THREE.PerspectiveCamera)) return;
-    if (size.width < 2 || size.height < 2) return;
-
-    const inset = layoutInsets;
-    camera.setViewOffset(
-      size.width,
-      size.height,
-      (inset.right - inset.left) / 2,
-      (inset.bottom - inset.top) / 2,
-      size.width,
-      size.height,
-    );
-    camera.aspect = size.width / size.height;
-    camera.fov = 38;
-    camera.updateProjectionMatrix();
-
-    const limits = {
-      minX: inset.left,
-      maxX: size.width - inset.right,
-      minY: inset.top,
-      maxY: size.height - inset.bottom,
-    };
-    const place = (distance: number) => {
-      camera.position.copy(HOME_DIRECTION).multiplyScalar(distance).add(LOOK_TARGET);
-      camera.up.set(0, 1, 0);
-      camera.lookAt(LOOK_TARGET);
-      camera.updateMatrixWorld();
-    };
-    const fits = (distance: number) => {
-      place(distance);
-      for (const point of APPLIANCE_POINTS) {
-        const projected = point.clone().project(camera);
-        const x = (projected.x * 0.5 + 0.5) * size.width;
-        const y = (1 - (projected.y * 0.5 + 0.5)) * size.height;
-        if (x < limits.minX || x > limits.maxX || y < limits.minY || y > limits.maxY) return false;
-      }
-      return true;
-    };
-
-    let near = 4;
-    let far = 80;
-    for (let step = 0; step < 22; step++) {
-      const mid = (near + far) / 2;
-      if (fits(mid)) far = mid;
-      else near = mid;
-    }
-
-    place(far * 1.04);
-    camera.updateProjectionMatrix();
-
-    const orbit = controls.current;
-    if (!orbit) return;
-    orbit.target.copy(LOOK_TARGET);
-    orbit.minDistance = 3.4;
-    orbit.maxDistance = Math.max(48, far * 1.7);
-    orbit.update();
-    orbit.saveState();
-  }, [camera, controls, layoutInsets, resetSignal, size.height, size.width]);
-
-  return null;
-}
+const NIGHT_APPLIANCE_POINTS = createAppliancePoints(0);
 
 function SkyDome() {
   const material = useMemo(
@@ -667,8 +579,64 @@ function sunColor(altitude: number): string {
   return "#fff3cf";
 }
 
+function placeObject(object: THREE.Object3D | null, point: { x: number; y: number; z: number }) {
+  object?.position.set(point.x, point.y, point.z);
+}
+
+function LiveLight({
+  track,
+  placement,
+  color,
+  distance,
+  decay,
+}: {
+  track: "sun" | "moon";
+  placement: SunPlacement | MoonPlacement;
+  color: string;
+  distance: number;
+  decay: number;
+}) {
+  const light = useRef<THREE.PointLight>(null);
+  const motion = useSolarMotion();
+
+  const apply = (next: SunPlacement | MoonPlacement) => {
+    const node = light.current;
+    if (!node) return;
+    if (track === "sun") {
+      const sun = next as SunPlacement;
+      node.visible = sun.altitude > -2;
+      node.intensity = sun.aboveHorizon ? 18 : 2;
+      node.position.set(sun.position.x, Math.max(sun.position.y, 0.2), sun.position.z);
+      return;
+    }
+    const moon = next as MoonPlacement;
+    node.visible = moon.aboveHorizon;
+    node.intensity = 4.5 * moon.fraction;
+    node.position.set(moon.position.x, Math.max(moon.position.y, 0.2), moon.position.z);
+  };
+
+  useLayoutEffect(() => {
+    if (motion.playing.current) return;
+    apply(placement);
+    // apply is recreated each render and reads the latest placement.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [motion, placement]);
+
+  useFrame(() => {
+    if (!motion.playing.current) return;
+    apply(readLiveBodies(motion)[track]);
+  });
+
+  return (
+    <pointLight ref={light} color={color} distance={distance} decay={decay} intensity={0} />
+  );
+}
+
 function SunBody({ sun }: { sun: SunPlacement }) {
+  const group = useRef<THREE.Group>(null);
+  const core = useRef<THREE.Mesh>(null);
   const glow = useRef<THREE.Sprite>(null);
+  const motion = useSolarMotion();
   const texture = useMemo(() => {
     const canvas = document.createElement("canvas");
     canvas.width = 256;
@@ -689,21 +657,44 @@ function SunBody({ sun }: { sun: SunPlacement }) {
 
   useEffect(() => () => texture?.dispose(), [texture]);
 
+  const apply = (placement: SunPlacement, elapsed: number) => {
+    placeObject(group.current, placement.position);
+    const radius = placement.aboveHorizon ? 0.12 : 0.08;
+    core.current?.scale.setScalar(radius);
+    const material = core.current?.material;
+    if (material instanceof THREE.MeshBasicMaterial) {
+      material.color.set(sunColor(placement.altitude));
+    }
+    if (!glow.current) return;
+    const pulse = 1 + Math.sin(elapsed * 1.7) * (placement.aboveHorizon ? 0.05 : 0.02);
+    const base = placement.altitude < 10 ? 1.85 : 1.35;
+    glow.current.scale.setScalar(base * pulse);
+    glow.current.renderOrder = placement.aboveHorizon ? 6 : 1;
+    const sprite = glow.current.material;
+    if (!Array.isArray(sprite)) sprite.opacity = placement.aboveHorizon ? 0.95 : 0.35;
+  };
+
+  useLayoutEffect(() => {
+    if (motion.playing.current) return;
+    apply(sun, 0);
+  }, [motion, sun]);
+
   useFrame(({ clock }) => {
+    if (motion.playing.current) {
+      apply(readLiveBodies(motion).sun, clock.elapsedTime);
+      return;
+    }
     if (!glow.current) return;
     const pulse = 1 + Math.sin(clock.elapsedTime * 1.7) * (sun.aboveHorizon ? 0.05 : 0.02);
     const base = sun.altitude < 10 ? 1.85 : 1.35;
     glow.current.scale.setScalar(base * pulse);
   });
 
-  const color = sunColor(sun.altitude);
-  const radius = sun.aboveHorizon ? 0.12 : 0.08;
-
   return (
-    <group position={[sun.position.x, sun.position.y, sun.position.z]}>
-      <mesh>
-        <sphereGeometry args={[radius, 32, 32]} />
-        <meshBasicMaterial color={color} toneMapped={false} />
+    <group ref={group}>
+      <mesh ref={core}>
+        <sphereGeometry args={[1, 32, 32]} />
+        <meshBasicMaterial color={sunColor(sun.altitude)} toneMapped={false} />
       </mesh>
       {texture && (
         <sprite ref={glow} scale={[1.5, 1.5, 1]} renderOrder={sun.aboveHorizon ? 6 : 1}>
@@ -721,60 +712,112 @@ function SunBody({ sun }: { sun: SunPlacement }) {
   );
 }
 
+function writeSegment(
+  line: ComponentRef<typeof Line> | null,
+  from: { x: number; y: number; z: number },
+  to: { x: number; y: number; z: number },
+) {
+  const geometry = (line as { geometry?: { setPositions?: (values: number[]) => void } } | null)
+    ?.geometry;
+  geometry?.setPositions?.([from.x, from.y, from.z, to.x, to.y, to.z]);
+}
+
+const SEGMENT: [number, number, number][] = [
+  [0, 1, 0],
+  [0, 0, 0],
+];
+
 function ShadowRig({ sun }: { sun: SunPlacement }) {
-  const tip: [number, number, number] = [0, GNOMON_HEIGHT, 0];
-  const from: [number, number, number] = [sun.position.x, sun.position.y, sun.position.z];
+  const motion = useSolarMotion();
+  const ray = useRef<ComponentRef<typeof Line>>(null);
+  const shadow = useRef<ComponentRef<typeof Line>>(null);
+  const tip = useRef<THREE.Mesh>(null);
+
+  const apply = useCallback((placement: SunPlacement) => {
+    const tipPoint = { x: 0, y: GNOMON_HEIGHT, z: 0 };
+    const origin = { x: 0, y: 0.045, z: 0 };
+    if (ray.current) ray.current.visible = placement.aboveHorizon;
+    writeSegment(ray.current, placement.position, tipPoint);
+    const mark = placement.shadow;
+    if (shadow.current) shadow.current.visible = Boolean(mark);
+    if (mark) writeSegment(shadow.current, origin, mark);
+    if (tip.current) {
+      tip.current.visible = Boolean(mark);
+      if (mark) tip.current.position.set(mark.x, 0.05, mark.z);
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    if (motion.playing.current) return;
+    apply(sun);
+  }, [apply, motion, sun]);
+
+  useFrame(() => {
+    if (!motion.playing.current) return;
+    apply(readLiveBodies(motion).sun);
+  });
 
   return (
     <group>
-      {sun.aboveHorizon && (
-        <Line
-          points={[from, tip]}
-          color="#ffe1a8"
-          lineWidth={1.4}
-          transparent
-          opacity={0.7}
-        />
-      )}
-      {sun.shadow && (
-        <Line
-          points={[
-            [0, 0.045, 0],
-            [sun.shadow.x, sun.shadow.y, sun.shadow.z],
-          ]}
-          color="#c9844a"
-          lineWidth={2.2}
-          transparent
-          opacity={0.9}
-        />
-      )}
-      {sun.shadow && (
-        <mesh
-          position={[sun.shadow.x, 0.05, sun.shadow.z]}
-          rotation={[-Math.PI / 2, 0, 0]}
-        >
-          <circleGeometry args={[0.055, 20]} />
-          <meshBasicMaterial color="#e0a15a" transparent opacity={0.8} toneMapped={false} />
-        </mesh>
-      )}
+      <Line
+        ref={ray}
+        points={SEGMENT}
+        color="#ffe1a8"
+        lineWidth={1.4}
+        transparent
+        opacity={0.7}
+      />
+      <Line
+        ref={shadow}
+        points={SEGMENT}
+        color="#c9844a"
+        lineWidth={2.2}
+        transparent
+        opacity={0.9}
+      />
+      <mesh ref={tip} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.055, 20]} />
+        <meshBasicMaterial color="#e0a15a" transparent opacity={0.8} toneMapped={false} />
+      </mesh>
     </group>
   );
 }
 
 function Bearing({
-  sun,
+  track,
   color,
+  placement,
 }: {
-  sun: Pick<SunPlacement, "bearing" | "aboveHorizon">;
+  track: "sun" | "moon";
   color: string;
+  placement: Pick<SunPlacement, "bearing" | "aboveHorizon">;
 }) {
+  const mesh = useRef<THREE.Mesh>(null);
+  const motion = useSolarMotion();
+
+  const apply = (next: Pick<SunPlacement, "bearing" | "aboveHorizon">) => {
+    placeObject(mesh.current, next.bearing);
+    const material = mesh.current?.material;
+    if (material instanceof THREE.MeshBasicMaterial) {
+      material.color.set(next.aboveHorizon ? color : "#6f7788");
+    }
+  };
+
+  useLayoutEffect(() => {
+    if (motion.playing.current) return;
+    apply(placement);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [motion, placement, color]);
+
+  useFrame(() => {
+    if (!motion.playing.current) return;
+    apply(readLiveBodies(motion)[track]);
+  });
+
   return (
-    <mesh position={[sun.bearing.x, sun.bearing.y, sun.bearing.z]}>
+    <mesh ref={mesh}>
       <sphereGeometry args={[0.045, 16, 16]} />
-      <meshBasicMaterial
-        color={sun.aboveHorizon ? color : "#6f7788"}
-        toneMapped={false}
-      />
+      <meshBasicMaterial color={placement.aboveHorizon ? color : "#6f7788"} toneMapped={false} />
     </mesh>
   );
 }
@@ -819,7 +862,10 @@ function createMoonPhaseTexture(fraction: number, waxing: boolean) {
 }
 
 function MoonBody({ moon }: { moon: MoonPlacement }) {
+  const group = useRef<THREE.Group>(null);
+  const core = useRef<THREE.Mesh>(null);
   const glow = useRef<THREE.Sprite>(null);
+  const motion = useSolarMotion();
   const fractionStep = Math.round(moon.fraction * 100) / 100;
   const texture = useMemo(
     () => createMoonPhaseTexture(fractionStep, moon.waxing),
@@ -849,30 +895,44 @@ function MoonBody({ moon }: { moon: MoonPlacement }) {
     };
   }, [texture, glowTexture]);
 
+  const apply = (placement: MoonPlacement, elapsed: number) => {
+    placeObject(group.current, placement.position);
+    const radius = placement.aboveHorizon ? 0.095 : 0.07;
+    core.current?.scale.setScalar(radius);
+    if (core.current) core.current.renderOrder = placement.aboveHorizon ? 6 : 1;
+    if (!glow.current) return;
+    const pulse = 1 + Math.sin(elapsed * 1.1) * 0.03;
+    glow.current.scale.setScalar((placement.aboveHorizon ? 1.15 : 0.85) * pulse);
+    glow.current.renderOrder = placement.aboveHorizon ? 6 : 1;
+    const sprite = glow.current.material;
+    if (!Array.isArray(sprite)) {
+      sprite.opacity = placement.aboveHorizon ? 0.55 * placement.fraction + 0.15 : 0.2;
+    }
+  };
+
+  useLayoutEffect(() => {
+    if (motion.playing.current) return;
+    apply(moon, 0);
+  }, [motion, moon]);
+
   useFrame(({ clock }) => {
+    if (motion.playing.current) {
+      apply(readLiveBodies(motion).moon, clock.elapsedTime);
+      return;
+    }
     if (!glow.current) return;
     const pulse = 1 + Math.sin(clock.elapsedTime * 1.1) * 0.03;
     glow.current.scale.setScalar((moon.aboveHorizon ? 1.15 : 0.85) * pulse);
   });
 
-  const radius = moon.aboveHorizon ? 0.095 : 0.07;
-
   return (
-    <group position={[moon.position.x, moon.position.y, moon.position.z]}>
-      <mesh renderOrder={moon.aboveHorizon ? 6 : 1}>
-        <sphereGeometry args={[radius, 32, 32]} />
-        <meshBasicMaterial
-          map={texture ?? undefined}
-          color="#ffffff"
-          toneMapped={false}
-        />
+    <group ref={group}>
+      <mesh ref={core} renderOrder={moon.aboveHorizon ? 6 : 1}>
+        <sphereGeometry args={[1, 32, 32]} />
+        <meshBasicMaterial map={texture ?? undefined} color="#ffffff" toneMapped={false} />
       </mesh>
       {glowTexture && (
-        <sprite
-          ref={glow}
-          scale={[1.25, 1.25, 1]}
-          renderOrder={moon.aboveHorizon ? 6 : 1}
-        >
+        <sprite ref={glow} scale={[1.25, 1.25, 1]} renderOrder={moon.aboveHorizon ? 6 : 1}>
           <spriteMaterial
             map={glowTexture}
             transparent

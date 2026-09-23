@@ -1,5 +1,7 @@
 export const DAVINCI_UNLOCK_STORAGE_KEY = "solstice:davinci-unlocked";
 
+let sessionUnlocked = false;
+
 /** Classic Konami sequence ending with B, then A. */
 export const KONAMI_SEQUENCE = [
   "ArrowUp",
@@ -21,6 +23,7 @@ export const KONAMI_SWIPE_MIN_PX = 36;
 export const KONAMI_TAP_SLOP_PX = 14;
 
 export function readDavinciUnlocked(): boolean {
+  if (sessionUnlocked) return true;
   if (typeof window === "undefined") return false;
   try {
     return window.localStorage.getItem(DAVINCI_UNLOCK_STORAGE_KEY) === "1";
@@ -30,6 +33,7 @@ export function readDavinciUnlocked(): boolean {
 }
 
 export function writeDavinciUnlocked(): void {
+  sessionUnlocked = true;
   try {
     window.localStorage.setItem(DAVINCI_UNLOCK_STORAGE_KEY, "1");
   } catch {

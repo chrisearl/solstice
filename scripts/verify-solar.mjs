@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { getPosition, getTimes } from "suncalc";
+import { formatAzimuth, formatMeanTime } from "../lib/format.ts";
 import { seasonInstants } from "../lib/seasons.ts";
 import { parseViewQuery, serializeViewQuery, viewHistoryState } from "../lib/view-query.ts";
 import {
@@ -10,9 +11,9 @@ import {
   buildSolarModel,
   dateFromDayIndex,
   dayIndexFromUtcDate,
-  formatAzimuth,
-  formatMeanTime,
+  daysInYear,
   gnomonShadow,
+  instantAtMinutes,
   placeMoon,
   placeSun,
   project,
@@ -20,6 +21,11 @@ import {
   seasonalDates,
   shadowLengthMeters,
 } from "../lib/solar.ts";
+import {
+  advanceSolarClock,
+  clockFromInstant,
+  initialClock,
+} from "../lib/timeline.ts";
 
 const ORLANDO = { lat: 28.5383, lng: -81.3792 };
 const MAX_PATH_STEP = 1.5;
@@ -281,33 +287,87 @@ test("formatAzimuth names the sixteen-point compass", () => {
   assert.equal(formatAzimuth(247.4).endsWith("WSW"), true);
 });
 
-test("view query round-trips place, date, time, and height", () => {
+test("clockFromInstant round-trips through instantAtMinutes", () => {
+  const year = 2026;
+  const dayIndex = dayIndexFromUtcDate(new Date(Date.UTC(2026, 5, 21)));
+  const minutes = 12 * 60 + 30;
+  const date = dateFromDayIndex(year, dayIndex);
+  const instant = instantAtMinutes(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    minutes,
+    ORLANDO.lng,
+  );
+  const clock = clockFromInstant(instant, ORLANDO.lng);
+  assert.equal(clock.year, year);
+  assert.equal(clock.dayIndex, dayIndex);
+  assert.ok(Math.abs(clock.minutes - minutes) < 1e-6);
+});
+
+test("initialClock keeps a June date when now is September", () => {
+  const june = dayIndexFromUtcDate(new Date(Date.UTC(2026, 5, 21)));
+  const clock = initialClock(
+    { year: 2026, dayIndex: june, minutes: 12 * 60 },
+    ORLANDO.lng,
+    new Date(Date.UTC(2026, 8, 22, 16, 0)),
+  );
+  assert.equal(clock.year, 2026);
+  assert.equal(clock.dayIndex, june);
+  assert.equal(clock.minutes, 12 * 60);
+});
+
+test("advanceSolarClock rolls midnight and New Year and blocks at the year ends", () => {
+  const june = dayIndexFromUtcDate(new Date(Date.UTC(2026, 5, 21)));
+  const nextMorning = advanceSolarClock({ year: 2026, dayIndex: june, minutes: 1430 }, 20);
+  assert.equal(nextMorning.blocked, false);
+  assert.equal(nextMorning.clock.year, 2026);
+  assert.equal(nextMorning.clock.dayIndex, june + 1);
+  assert.ok(Math.abs(nextMorning.clock.minutes - 10) < 1e-6);
+
+  const dec31 = dayIndexFromUtcDate(new Date(Date.UTC(2026, 11, 31)));
+  const newYear = advanceSolarClock({ year: 2026, dayIndex: dec31, minutes: 1439 }, 2);
+  assert.equal(newYear.blocked, false);
+  assert.equal(newYear.clock.year, 2027);
+  assert.equal(newYear.clock.dayIndex, 0);
+  assert.ok(Math.abs(newYear.clock.minutes - 1) < 1e-6);
+
+  const beforeRange = advanceSolarClock({ year: 1900, dayIndex: 0, minutes: 0 }, -1);
+  assert.equal(beforeRange.blocked, true);
+  assert.deepEqual(beforeRange.clock, { year: 1900, dayIndex: 0, minutes: 0 });
+
+  const lastDay = daysInYear(2100) - 1;
+  const afterRange = advanceSolarClock({ year: 2100, dayIndex: lastDay, minutes: 1439 }, 2);
+  assert.equal(afterRange.blocked, true);
+  assert.deepEqual(afterRange.clock, { year: 2100, dayIndex: lastDay, minutes: 1439 });
+});
+
+test("view query round-trips place, date, and time", () => {
   const parsed = parseViewQuery({
     lat: "27.6936",
     lng: "-97.5195",
     date: "2026-09-22",
     time: "14:05",
-    h: "1",
+    h: "12",
   });
   assert.equal(parsed.latitude, 27.6936);
   assert.equal(parsed.longitude, -97.5195);
   assert.equal(parsed.minutes, 14 * 60 + 5);
-  assert.equal(parsed.objectHeight, 1);
+  assert.equal("objectHeight" in parsed, false);
   const date = dateFromDayIndex(parsed.year, parsed.dayIndex);
   const serialized = serializeViewQuery({
     latitude: parsed.latitude,
     longitude: parsed.longitude,
     date,
     minutes: parsed.minutes,
-    objectHeight: parsed.objectHeight,
   });
+  assert.equal(serialized.includes("h="), false);
   const again = parseViewQuery(Object.fromEntries(new URLSearchParams(serialized)));
   assert.equal(again.latitude, parsed.latitude);
   assert.equal(again.longitude, parsed.longitude);
   assert.equal(again.year, parsed.year);
   assert.equal(again.dayIndex, parsed.dayIndex);
   assert.equal(again.minutes, parsed.minutes);
-  assert.equal(again.objectHeight, parsed.objectHeight);
 
   const partial = parseViewQuery({ lat: "nope", date: "2026-09-22" });
   assert.equal(partial.latitude, undefined);
@@ -316,6 +376,8 @@ test("view query round-trips place, date, time, and height", () => {
 });
 
 test("view url updates reuse the app-router history entry", () => {
+  // A future Next.js history-state shape must keep returning null unless it is
+  // the App Router entry. Reusing any other state refetches this page.
   const entry = { __NA: true, __PRIVATE_NEXTJS_INTERNALS_TREE: { renderedSearch: "" } };
   assert.equal(viewHistoryState(entry), entry);
   assert.equal(viewHistoryState(null), null);
