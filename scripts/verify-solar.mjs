@@ -21,6 +21,28 @@ import {
 } from "../lib/solar.ts";
 
 const ORLANDO = { lat: 28.5383, lng: -81.3792 };
+const MAX_PATH_STEP = 1.5;
+
+function maxStep(points) {
+  let max = 0;
+  for (let index = 1; index < points.length; index++) {
+    const previous = points[index - 1];
+    const next = points[index];
+    max = Math.max(
+      max,
+      Math.hypot(next.x - previous.x, next.y - previous.y, next.z - previous.z),
+    );
+  }
+  return max;
+}
+
+function assertNoLongSteps(points, label) {
+  const step = maxStep(points);
+  assert.ok(
+    step <= MAX_PATH_STEP,
+    `${label} has a ${step.toFixed(2)} scene-unit step (max ${MAX_PATH_STEP})`,
+  );
+}
 
 test("azimuth zero points north and altitude lifts the sun", () => {
   const north = project(0, 0, 1);
@@ -79,6 +101,20 @@ test("Sydney December noon is high and north of the observer", () => {
   assert.ok(position.altitude > 70, String(position.altitude));
   const sky = project(position.azimuth, position.altitude, 1);
   assert.ok(sky.z > 0, `expected north, got azimuth ${position.azimuth}`);
+});
+
+test("Orlando sun arcs avoid horizon chords through the gnomon", () => {
+  const model = buildSolarModel({
+    year: 2026,
+    dayIndex: dayIndexFromUtcDate(new Date(Date.UTC(2026, 8, 22))),
+    latitude: ORLANDO.lat,
+    longitude: ORLANDO.lng,
+  });
+
+  for (const arc of model.arcs) {
+    assertNoLongSteps(arc.points, `${arc.id} above`);
+    assertNoLongSteps(arc.underPoints, `${arc.id} under`);
+  }
 });
 
 test("moon path and placement stay on the sky dome in Orlando", () => {

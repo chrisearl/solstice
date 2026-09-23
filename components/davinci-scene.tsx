@@ -23,6 +23,7 @@ import {
   DISC_RADIUS,
   SKY_RADIUS,
   project,
+  splitPathRuns,
   type AzimuthFan,
   type HorizonMarks,
   type MoonPlacement,
@@ -302,8 +303,8 @@ function InkSkyArc({
   variant: SolarArc["id"] | "moon";
 }) {
   const style = strokeStyle(variant, arc.emphasized);
-  const above = splitRuns(arc.points);
-  const below = splitRuns(arc.underPoints);
+  const above = splitPathRuns(arc.points);
+  const below = splitPathRuns(arc.underPoints);
   return (
     <group>
       {below.map((points, index) => (
@@ -332,20 +333,6 @@ function InkSkyArc({
       ))}
     </group>
   );
-}
-
-/** Drop the long chords that stitch horizon endpoints across the disc. */
-function splitRuns(points: Vec3[], maxGap = 1.25): Vec3[][] {
-  if (points.length < 2) return [];
-  const runs: Vec3[][] = [[points[0]]];
-  for (let index = 1; index < points.length; index++) {
-    const previous = points[index - 1];
-    const next = points[index];
-    const gap = Math.hypot(next.x - previous.x, next.y - previous.y, next.z - previous.z);
-    if (gap > maxGap) runs.push([next]);
-    else runs[runs.length - 1].push(next);
-  }
-  return runs.filter((run) => run.length > 1);
 }
 
 function InkOrb({

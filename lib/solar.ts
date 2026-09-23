@@ -452,6 +452,31 @@ function horizonPoint(a: Sample, b: Sample): Vec3 {
   return project(lerpAngle(a.azimuth, b.azimuth, t), 0, SKY_RADIUS);
 }
 
+function meanSolarDayWindow(
+  year: number,
+  month: number,
+  day: number,
+  longitude: number,
+): { start: number; end: number } {
+  const start = instantAtMinutes(year, month, day, 0, longitude).getTime();
+  const end = instantAtMinutes(year, month, day, 1440, longitude).getTime();
+  return { start, end };
+}
+
+/** Drop long chords that stitch disconnected horizon endpoints across the disc. */
+export function splitPathRuns(points: Vec3[], maxGap = 1.25): Vec3[][] {
+  if (points.length < 2) return [];
+  const runs: Vec3[][] = [[points[0]]];
+  for (let index = 1; index < points.length; index++) {
+    const previous = points[index - 1];
+    const next = points[index];
+    const gap = Math.hypot(next.x - previous.x, next.y - previous.y, next.z - previous.z);
+    if (gap > maxGap) runs.push([next]);
+    else runs[runs.length - 1].push(next);
+  }
+  return runs.filter((run) => run.length > 1);
+}
+
 function sampleBodyPath(
   date: Date,
   latitude: number,
@@ -462,12 +487,20 @@ function sampleBodyPath(
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth();
   const day = date.getUTCDate();
+  const { start: windowStart, end: windowEnd } = meanSolarDayWindow(
+    year,
+    month,
+    day,
+    longitude,
+  );
   const stamps: number[] = [];
 
   for (let minutes = 0; minutes <= 1440; minutes += SAMPLE_MINUTES) {
     stamps.push(instantAtMinutes(year, month, day, minutes, longitude).getTime());
   }
-  stamps.push(...extraStamps);
+  for (const stamp of extraStamps) {
+    if (stamp >= windowStart && stamp <= windowEnd) stamps.push(stamp);
+  }
   stamps.sort((a, b) => a - b);
 
   const samples: Sample[] = stamps.map((ms) => {
@@ -547,7 +580,11 @@ function samplePath(
   latitude: number,
   longitude: number,
 ): { points: Vec3[]; closed: boolean; underPoints: Vec3[]; underClosed: boolean } {
-  const times = getTimes(date, latitude, longitude);
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
+  const noonInstant = instantAtMinutes(year, month, day, 720, longitude);
+  const times = getTimes(noonInstant, latitude, longitude);
   const extras = [times.sunrise, times.sunset]
     .filter((value): value is Date => Boolean(value))
     .map((value) => value.getTime());
@@ -565,7 +602,11 @@ function sampleMoonPath(
   latitude: number,
   longitude: number,
 ): { points: Vec3[]; closed: boolean; underPoints: Vec3[]; underClosed: boolean } {
-  const times = getMoonTimes(date, latitude, longitude);
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
+  const noonInstant = instantAtMinutes(year, month, day, 720, longitude);
+  const times = getMoonTimes(noonInstant, latitude, longitude);
   const extras = [times.rise, times.set]
     .filter((value): value is Date => Boolean(value))
     .map((value) => value.getTime());
