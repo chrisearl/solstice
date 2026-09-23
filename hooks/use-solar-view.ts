@@ -21,6 +21,12 @@ import {
   type PlanetId,
 } from "@/lib/orrery";
 import {
+  readStudioThemePreference,
+  resolveInitialStudioTheme,
+  subscribeStudioTheme,
+  writeStudioThemePreference,
+} from "@/lib/studio-theme-preference";
+import {
   DEFAULT_STUDIO_VIEW,
   type StudioModel,
   type StudioTheme,
@@ -54,8 +60,8 @@ export function useSolarView(initial?: ParsedView) {
   const [studioModel, setStudioModelState] = useState<StudioModel>(
     () => initial?.model ?? DEFAULT_STUDIO_VIEW.model,
   );
-  const [studioTheme, setStudioThemeState] = useState<StudioTheme>(
-    () => initial?.theme ?? DEFAULT_STUDIO_VIEW.theme,
+  const [studioTheme, setStudioThemeState] = useState<StudioTheme>(() =>
+    resolveInitialStudioTheme(initial?.theme),
   );
   const [focusPlanet, setFocusPlanet] = useState<PlanetId | "moon">("earth");
   const [visiblePlanets, setVisiblePlanets] = useState<Set<PlanetId>>(
@@ -104,11 +110,21 @@ export function useSolarView(initial?: ParsedView) {
 
   const setStudioTheme = (value: StudioTheme) => {
     setStudioThemeState(value);
+    writeStudioThemePreference(value);
   };
+
+  useEffect(() => {
+    return subscribeStudioTheme(() => {
+      const stored = readStudioThemePreference();
+      if (!stored) return;
+      setStudioThemeState((current) => (current === stored ? current : stored));
+    });
+  }, []);
 
   const setStudioView = (next: StudioView) => {
     setStudioModelState(next.model);
     setStudioThemeState(next.theme);
+    writeStudioThemePreference(next.theme);
     setPlayback(false);
   };
 
