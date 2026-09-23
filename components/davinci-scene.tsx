@@ -23,9 +23,8 @@ import {
   davinciVertexShader,
 } from "@/lib/davinci-shader";
 import type { LayoutInsets } from "@/lib/layout-insets";
+import { DAVINCI_DISC_FILL_OPACITY, davinciDiscFillColor } from "@/lib/light";
 import {
-  DISC_FILL_COLOR,
-  DISC_FILL_OPACITY,
   DISC_RADIUS,
   GNOMON_HEIGHT,
   SKY_RADIUS,
@@ -131,7 +130,7 @@ function InkInstrument({
   return (
     <>
       <group>
-        <InkCompass />
+        <InkCompass sun={sun} />
         {showSun && <InkHorizon horizon={horizon} />}
         <InkGnomon />
         {showSun && <InkShadowRig sun={sun} />}
@@ -165,7 +164,26 @@ function InkInstrument({
   );
 }
 
-function InkCompass() {
+function InkCompass({ sun }: { sun: SunPlacement }) {
+  const fillMaterial = useRef<THREE.MeshBasicMaterial>(null);
+  const motion = useSolarMotion();
+
+  const applyFill = useCallback((placement: SunPlacement) => {
+    const material = fillMaterial.current;
+    if (!material) return;
+    material.color.set(davinciDiscFillColor(placement.lightingPhase.id));
+  }, []);
+
+  useLayoutEffect(() => {
+    if (motion.playing.current) return;
+    applyFill(sun);
+  }, [applyFill, motion, sun]);
+
+  useFrame(() => {
+    if (!motion.playing.current) return;
+    applyFill(readLiveBodies(motion).sun);
+  });
+
   const ticks = useMemo(() => {
     const pairs: [number, number, number][] = [];
     for (let bearing = 0; bearing < 360; bearing += 10) {
@@ -185,9 +203,10 @@ function InkCompass() {
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.011, 0]} renderOrder={2}>
         <circleGeometry args={[DISC_RADIUS, 128]} />
         <meshBasicMaterial
-          color={DISC_FILL_COLOR}
+          ref={fillMaterial}
+          color={davinciDiscFillColor(sun.lightingPhase.id)}
           transparent
-          opacity={DISC_FILL_OPACITY}
+          opacity={DAVINCI_DISC_FILL_OPACITY}
           toneMapped={false}
           depthWrite={false}
         />
