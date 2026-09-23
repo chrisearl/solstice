@@ -27,7 +27,9 @@ import { DAVINCI_DISC_FILL_OPACITY, davinciDiscFillColor } from "@/lib/light";
 import {
   DISC_RADIUS,
   GNOMON_HEIGHT,
+  MOON_ARC_DOT,
   SKY_RADIUS,
+  fadedPathSegments,
   project,
   splitPathRuns,
   type AzimuthFan,
@@ -393,6 +395,34 @@ function InkSkyArc({
   const style = strokeStyle(variant, arc.emphasized);
   const above = splitPathRuns(arc.points);
   const below = splitPathRuns(arc.underPoints);
+
+  if (variant === "moon") {
+    return (
+      <group>
+        {below.map((points, index) => (
+          <InkStroke
+            key={`under-${index}`}
+            points={points}
+            closed={arc.underClosed && below.length === 1}
+            dashed
+            dashSize={MOON_ARC_DOT.dashSize}
+            gapSize={MOON_ARC_DOT.gapSize}
+            lineWidth={1}
+            opacity={style.opacity * 0.38}
+          />
+        ))}
+        {above.map((points, index) => (
+          <InkFadedDottedStroke
+            key={`above-${index}`}
+            points={points}
+            lineWidth={style.lineWidth}
+            opacity={style.opacity}
+          />
+        ))}
+      </group>
+    );
+  }
+
   return (
     <group>
       {below.map((points, index) => (
@@ -567,12 +597,52 @@ function InkStroke({
   );
 }
 
+function InkFadedDottedStroke({
+  points,
+  opacity,
+  lineWidth,
+}: {
+  points: Vec3[];
+  opacity: number;
+  lineWidth: number;
+}) {
+  const segments = useMemo(
+    () =>
+      fadedPathSegments(points, {
+        baseOpacity: opacity,
+        fadeFraction: MOON_ARC_DOT.fadeFraction,
+      }),
+    [opacity, points],
+  );
+
+  return segments.map((segment, index) => (
+    <Line
+      key={index}
+      points={segment.points.map((point) => [point.x, point.y, point.z] as [number, number, number])}
+      color={INK}
+      lineWidth={lineWidth}
+      dashed
+      dashSize={MOON_ARC_DOT.dashSize}
+      gapSize={MOON_ARC_DOT.gapSize}
+      transparent
+      opacity={segment.opacity}
+      depthWrite={false}
+    />
+  ));
+}
+
 function strokeStyle(variant: SolarArc["id"] | "moon", emphasized: boolean) {
+  if (variant === "moon") {
+    return {
+      lineWidth: 1.35,
+      opacity: 0.82,
+      dashed: true,
+      dashSize: MOON_ARC_DOT.dashSize,
+      gapSize: MOON_ARC_DOT.gapSize,
+    };
+  }
   if (variant === "selected" || emphasized) {
     return { lineWidth: 2.2, opacity: 0.95, dashed: false, dashSize: 0.18, gapSize: 0.1 };
-  }
-  if (variant === "moon") {
-    return { lineWidth: 1.35, opacity: 0.8, dashed: true, dashSize: 0.16, gapSize: 0.11 };
   }
   return { lineWidth: 1.05, opacity: 0.4, dashed: true, dashSize: 0.24, gapSize: 0.18 };
 }

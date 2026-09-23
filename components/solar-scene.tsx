@@ -23,7 +23,9 @@ import {
   DISC_FILL_OPACITY,
   DISC_RADIUS,
   GNOMON_HEIGHT,
+  MOON_ARC_DOT,
   SKY_RADIUS,
+  fadedPathSegments,
   project,
   splitPathRuns,
   type AzimuthFan,
@@ -145,7 +147,7 @@ function SceneContent({
           arcs.map((arc) => (
             <SkyArc key={arc.id} arc={arc} />
           ))}
-        {showMoon && <SkyArc arc={moonArc} />}
+        {showMoon && <SkyArc arc={moonArc} variant="moon" />}
         {showSun && <SunBody sun={sun} />}
         {showSun && <ShadowRig sun={sun} />}
         {showSun && <Bearing track="sun" color="#ffd78a" placement={sun} />}
@@ -371,9 +373,38 @@ function Gnomon() {
   );
 }
 
-function SkyArc({ arc }: { arc: SkyPath }) {
+function SkyArc({ arc, variant }: { arc: SkyPath; variant?: "moon" }) {
+  if (variant === "moon") return <MoonSkyArc arc={arc} />;
   if (!arc.emphasized) return <QuietSkyArc arc={arc} />;
   return <SolidSkyArc arc={arc} />;
+}
+
+function MoonSkyArc({ arc }: { arc: SkyPath }) {
+  const aboveRuns = useMemo(() => splitPathRuns(arc.points), [arc.points]);
+  const underRuns = useMemo(() => splitPathRuns(arc.underPoints), [arc.underPoints]);
+
+  return (
+    <group>
+      <DashedRuns
+        runs={underRuns}
+        closed={arc.underClosed}
+        color={arc.color}
+        lineWidth={1}
+        opacity={0.18}
+        dashSize={MOON_ARC_DOT.dashSize}
+        gapSize={MOON_ARC_DOT.gapSize}
+        renderOrder={1}
+      />
+      <FadedDottedRuns
+        runs={aboveRuns}
+        color={arc.color}
+        lineWidth={1.45}
+        opacity={0.84}
+        renderOrder={4}
+      />
+      <ArcLabel arc={arc} />
+    </group>
+  );
 }
 
 /** Reference paths sit behind the day being shown: thin, dim, and broken. */
@@ -513,6 +544,48 @@ function DashedRuns({
       />
     );
   });
+}
+
+function FadedDottedRuns({
+  runs,
+  color,
+  lineWidth,
+  opacity,
+  renderOrder,
+}: {
+  runs: Vec3[][];
+  color: string;
+  lineWidth: number;
+  opacity: number;
+  renderOrder: number;
+}) {
+  const segments = useMemo(
+    () =>
+      runs.flatMap((run) =>
+        fadedPathSegments(run, {
+          baseOpacity: opacity,
+          fadeFraction: MOON_ARC_DOT.fadeFraction,
+        }),
+      ),
+    [opacity, runs],
+  );
+
+  return segments.map((segment, index) => (
+    <Line
+      key={index}
+      points={segment.points.map((point) => [point.x, point.y, point.z] as [number, number, number])}
+      color={color}
+      lineWidth={lineWidth}
+      dashed
+      dashSize={MOON_ARC_DOT.dashSize}
+      gapSize={MOON_ARC_DOT.gapSize}
+      transparent
+      opacity={segment.opacity}
+      depthWrite={false}
+      toneMapped={false}
+      renderOrder={renderOrder}
+    />
+  ));
 }
 
 function linePoints(points: Vec3[], closed: boolean): [number, number, number][] {
