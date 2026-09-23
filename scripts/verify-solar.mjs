@@ -342,6 +342,17 @@ test("advanceSolarClock rolls midnight and New Year and blocks at the year ends"
   assert.deepEqual(afterRange.clock, { year: 2100, dayIndex: lastDay, minutes: 1439 });
 });
 
+test("advanceSolarClock can loop the same calendar day at midnight", () => {
+  const june = dayIndexFromUtcDate(new Date(Date.UTC(2026, 5, 21)));
+  const wrapped = advanceSolarClock({ year: 2026, dayIndex: june, minutes: 1430 }, 20, {
+    loopDay: true,
+  });
+  assert.equal(wrapped.blocked, false);
+  assert.equal(wrapped.clock.year, 2026);
+  assert.equal(wrapped.clock.dayIndex, june);
+  assert.ok(Math.abs(wrapped.clock.minutes - 10) < 1e-6);
+});
+
 test("view query round-trips place, date, and time", () => {
   const parsed = parseViewQuery({
     lat: "27.6936",

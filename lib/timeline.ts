@@ -40,6 +40,11 @@ export interface SolarClockStep {
   blocked: boolean;
 }
 
+export interface AdvanceSolarClockOptions {
+  /** When true, minutes wrap at midnight without advancing the calendar day. */
+  loopDay?: boolean;
+}
+
 /**
  * Mean-solar calendar position of an instant at `longitude`.
  * SunCalc often returns the occurrence nearest UTC midnight, which can fall on
@@ -127,8 +132,16 @@ function shiftDays(clock: SolarClock, dayDelta: number): SolarClock | null {
  * A step that would leave 1900-01-01 .. 2100-12-31 is refused: the clock stays put
  * and `blocked` is true so playback can pause.
  */
-export function advanceSolarClock(clock: SolarClock, deltaMinutes: number): SolarClockStep {
+export function advanceSolarClock(
+  clock: SolarClock,
+  deltaMinutes: number,
+  options?: AdvanceSolarClockOptions,
+): SolarClockStep {
   if (deltaMinutes === 0) return { clock, blocked: false };
+  if (options?.loopDay) {
+    const minutes = ((clock.minutes + deltaMinutes) % DAY_MINUTES + DAY_MINUTES) % DAY_MINUTES;
+    return { clock: { ...clock, minutes }, blocked: false };
+  }
   let minutes = clock.minutes + deltaMinutes;
   let dayDelta = Math.floor(minutes / DAY_MINUTES);
   minutes -= dayDelta * DAY_MINUTES;

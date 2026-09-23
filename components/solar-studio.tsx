@@ -37,6 +37,8 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     minutes,
     dayCount,
     playing,
+    loopDay,
+    setDayLoop,
     playbackSpeed,
     setPlaybackSpeed,
     latitude,
@@ -304,6 +306,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
 
       <TimelineSheet
         playing={playing}
+        loopDay={loopDay}
         speed={playbackSpeed}
         samples={samples}
         times={model.times}
@@ -318,6 +321,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
         tone={parchment ? "parchment" : "night"}
         onMinutes={seekMinutes}
         onPlaying={setPlayback}
+        onLoopDay={setDayLoop}
         onSpeed={setPlaybackSpeed}
       />
 

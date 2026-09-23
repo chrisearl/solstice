@@ -31,6 +31,8 @@ export function useSolarView(initial?: ParsedView) {
   const { year, dayIndex, minutes } = clock;
   const [playing, setPlaying] = useState(false);
   const playingRef = useRef(false);
+  const [loopDay, setLoopDay] = useState(false);
+  const loopDayRef = useRef(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeed>(PLAYBACK_SPEEDS[2]);
   const [latText, setLatText] = useState(String(initial?.latitude ?? ORLANDO.lat));
   const [lngText, setLngText] = useState(String(initial?.longitude ?? ORLANDO.lng));
@@ -54,6 +56,11 @@ export function useSolarView(initial?: ParsedView) {
   const setPlayback = (value: boolean) => {
     playingRef.current = value;
     setPlaying(value);
+  };
+
+  const setDayLoop = (value: boolean) => {
+    loopDayRef.current = value;
+    setLoopDay(value);
   };
 
   const publishClock = (next: SolarClock, stopPlayback = false) => {
@@ -87,10 +94,9 @@ export function useSolarView(initial?: ParsedView) {
       if (!playingRef.current) return;
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      const step = advanceSolarClock(
-        clockRef.current,
-        dt * playbackSpeed.minutesPerSecond,
-      );
+      const step = advanceSolarClock(clockRef.current, dt * playbackSpeed.minutesPerSecond, {
+        loopDay: loopDayRef.current,
+      });
       clockRef.current = step.clock;
       const dayKey = `${step.clock.year}:${step.clock.dayIndex}`;
       const dayChanged = dayKey !== publishedDay;
@@ -330,6 +336,8 @@ export function useSolarView(initial?: ParsedView) {
     minutes,
     dayCount: daysInYear(year),
     playing,
+    loopDay,
+    setDayLoop,
     playbackSpeed,
     setPlaybackSpeed,
     latitude,
