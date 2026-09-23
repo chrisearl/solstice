@@ -43,6 +43,7 @@ import {
   type PlanetId,
 } from "@/lib/orrery";
 import type { StudioModel } from "@/lib/studio-view";
+import { SOLAR_YEAR_MAX, SOLAR_YEAR_MIN } from "@/lib/timeline";
 import {
   PRESETS,
   seekMinute,
@@ -55,6 +56,9 @@ import {
   type SolarModel,
   type SunPlacement,
 } from "@/lib/solar";
+
+const DATE_INPUT_MIN = `${SOLAR_YEAR_MIN}-01-01`;
+const DATE_INPUT_MAX = `${SOLAR_YEAR_MAX}-12-31`;
 
 export interface ControlPanelProps {
   studioModel: StudioModel;
@@ -219,8 +223,8 @@ export function ControlPanel(props: ControlPanelProps) {
         <div className="flex items-center gap-2">
           <Input
             type="date"
-            min="1900-01-01"
-            max="2100-12-31"
+            min={DATE_INPUT_MIN}
+            max={DATE_INPUT_MAX}
             value={isoFromDate(props.model.date)}
             onChange={(event) => props.onDate(event.target.value)}
             className="h-8 border-white/10 bg-white/5 font-mono text-white scheme-dark"
@@ -364,8 +368,8 @@ function OrreryControlPanel(props: ControlPanelProps) {
         />
         <Input
           type="date"
-          min="1900-01-01"
-          max="2100-12-31"
+          min={DATE_INPUT_MIN}
+          max={DATE_INPUT_MAX}
           value={isoFromDate(props.model.date)}
           onChange={(event) => props.onDate(event.target.value)}
           className="h-8 border-white/10 bg-white/5 font-mono text-white scheme-dark"

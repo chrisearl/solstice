@@ -340,10 +340,10 @@ test("advanceSolarClock rolls midnight and New Year and blocks at the year ends"
   assert.equal(beforeRange.blocked, true);
   assert.deepEqual(beforeRange.clock, { year: 1900, dayIndex: 0, minutes: 0 });
 
-  const lastDay = daysInYear(2100) - 1;
-  const afterRange = advanceSolarClock({ year: 2100, dayIndex: lastDay, minutes: 1439 }, 2);
+  const lastDay = daysInYear(2112) - 1;
+  const afterRange = advanceSolarClock({ year: 2112, dayIndex: lastDay, minutes: 1439 }, 2);
   assert.equal(afterRange.blocked, true);
-  assert.deepEqual(afterRange.clock, { year: 2100, dayIndex: lastDay, minutes: 1439 });
+  assert.deepEqual(afterRange.clock, { year: 2112, dayIndex: lastDay, minutes: 1439 });
 });
 
 test("advanceSolarClock can loop the same calendar day at midnight", () => {
