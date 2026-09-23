@@ -526,16 +526,10 @@ function strokeStyle(variant: SolarArc["id"] | "moon", emphasized: boolean) {
   if (variant === "selected" || emphasized) {
     return { lineWidth: 2.2, opacity: 0.95, dashed: false, dashSize: 0.18, gapSize: 0.1 };
   }
-  if (variant === "winter") {
-    return { lineWidth: 1.25, opacity: 0.72, dashed: true, dashSize: 0.22, gapSize: 0.14 };
-  }
   if (variant === "moon") {
     return { lineWidth: 1.35, opacity: 0.8, dashed: true, dashSize: 0.16, gapSize: 0.11 };
   }
-  if (variant === "equinox") {
-    return { lineWidth: 1.2, opacity: 0.66, dashed: false, dashSize: 0.16, gapSize: 0.1 };
-  }
-  return { lineWidth: 1.35, opacity: 0.8, dashed: false, dashSize: 0.16, gapSize: 0.1 };
+  return { lineWidth: 1.05, opacity: 0.4, dashed: true, dashSize: 0.24, gapSize: 0.18 };
 }
 
 function horizonArc(start: number, sweep: number, radius: number): Vec3[] {
