@@ -19,6 +19,8 @@ import { createAppliancePoints } from "@/lib/scene-framing";
 import { createCompassTexture } from "@/lib/compass-texture";
 import type { LayoutInsets } from "@/lib/layout-insets";
 import {
+  DISC_FILL_COLOR,
+  DISC_FILL_OPACITY,
   DISC_RADIUS,
   GNOMON_HEIGHT,
   SKY_RADIUS,
@@ -294,6 +296,16 @@ function CompassDisc() {
       <mesh position={[0, -0.09, 0]}>
         <cylinderGeometry args={[DISC_RADIUS, DISC_RADIUS * 1.012, 0.16, 96]} />
         <meshStandardMaterial color="#10141c" roughness={0.92} metalness={0.18} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.011, 0]} renderOrder={2}>
+        <circleGeometry args={[DISC_RADIUS, 128]} />
+        <meshBasicMaterial
+          color={DISC_FILL_COLOR}
+          transparent
+          opacity={DISC_FILL_OPACITY}
+          toneMapped={false}
+          depthWrite={false}
+        />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]} renderOrder={2}>
         <circleGeometry args={[DISC_RADIUS, 128]} />
