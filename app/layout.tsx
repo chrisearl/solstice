@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -36,7 +37,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${instrument.variable} dark h-full antialiased`}
     >
-      <body className="h-full overflow-hidden bg-[#07080d] text-[#f3efe6]">{children}</body>
+      <body className="h-full overflow-hidden bg-[#07080d] text-[#f3efe6]">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
