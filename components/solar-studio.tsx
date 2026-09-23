@@ -105,6 +105,8 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   const [readingsOpen, setReadingsOpen] = useState(false);
   const { davinciUnlocked } = useDavinciUnlock();
   const view = resolveStudioView(studioModel, studioTheme, davinciUnlocked);
+  const realtime =
+    view.model === "orrery" ? orrerySpeed.realtime : astrolabeSpeed.realtime;
 
   const {
     breakpoint,
@@ -334,6 +336,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
           latitude={latitude}
           longitude={longitude}
           minutes={minutes}
+          realtime={realtime}
           playing={playing}
           showSun={showSun}
           showMoon={showMoon}

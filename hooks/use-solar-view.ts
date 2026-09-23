@@ -42,7 +42,7 @@ import {
 export function useSolarView(initial?: ParsedView) {
   const stageRef = useRef<HTMLDivElement>(null);
   const bootLongitude = initial?.longitude ?? ORLANDO.lng;
-  const [clock, setClock] = useState(() => initialClock(initial, bootLongitude, new Date()));
+  const [clock, setClock] = useState(() => clockFromInstant(new Date(), bootLongitude));
   const clockRef = useRef(clock);
   const { year, dayIndex, minutes } = clock;
   const [playing, setPlaying] = useState(false);
@@ -153,6 +153,10 @@ export function useSolarView(initial?: ParsedView) {
   const seekDate = (nextYear: number, nextDay: number) => {
     publishClock({ ...clockRef.current, year: nextYear, dayIndex: nextDay }, true);
   };
+
+  useEffect(() => {
+    syncClockToNow();
+  }, []);
 
   useEffect(() => {
     latitudeRef.current = latitude;
