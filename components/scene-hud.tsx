@@ -8,6 +8,7 @@ import {
   Pause,
   Play,
   RotateCcw,
+  Rows2,
   Settings2,
   SunMedium,
 } from "lucide-react";
@@ -54,6 +55,8 @@ interface SceneHudProps {
   onPlaying: (value: boolean) => void;
   onResetView: () => void;
   onToggleInspector: () => void;
+  readingsOpen?: boolean;
+  onReadings?: (open: boolean) => void;
 }
 
 export function SceneHud(props: SceneHudProps) {
@@ -78,6 +81,18 @@ export function SceneHud(props: SceneHudProps) {
   const seek = (instant: Date | null) => seekMinute(instant, props.model.date, props.longitude);
   const wide = props.breakpoint === "tablet" || props.breakpoint === "desktop" || props.breakpoint === "large";
   const tone = props.tone ?? "night";
+
+  if (props.breakpoint === "mobile" && props.variant !== "minimal") {
+    return (
+      <PortraitFinder
+        {...props}
+        location={location}
+        timeLabel={timeLabel}
+        civilTime={civilTime}
+        seek={seek}
+      />
+    );
+  }
 
   const hudTopClass = "pt-[calc(0.75rem+env(safe-area-inset-top,0px))]";
   const actionButtons = (
@@ -226,6 +241,181 @@ export function SceneHud(props: SceneHudProps) {
   );
 }
 
+function PortraitFinder({
+  location,
+  timeLabel,
+  civilTime,
+  seek,
+  ...props
+}: SceneHudProps & {
+  location: string;
+  timeLabel: string;
+  civilTime: string | null;
+  seek: (instant: Date | null) => number | null;
+}) {
+  const readingsOpen = props.readingsOpen ?? false;
+  const showReadings = readingsOpen && !props.inspectorOpen;
+  const phase = props.showSun ? props.sun.lightingPhase.label : null;
+
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-20 px-3 pt-[calc(0.5rem+env(safe-area-inset-top,0px))]">
+      <div className="pointer-events-auto flex items-center gap-1.5">
+        <div className="chrome-surface flex min-w-0 flex-1 items-center gap-2 rounded-full border border-white/10 bg-black/45 px-3 py-1.5 backdrop-blur-md">
+          <Clock className="size-3.5 shrink-0 text-[#f0b429]" />
+          <p className="font-mono text-base text-[#f7f3ea] tabular-nums">{timeLabel}</p>
+          {phase && (
+            <p className="min-w-0 truncate text-[10px] tracking-[0.14em] text-white/55 uppercase">
+              {phase}
+            </p>
+          )}
+          {props.playing && (
+            <span className="relative ml-auto flex size-2 shrink-0">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#f0b429]/70 motion-reduce:animate-none" />
+              <span className="relative inline-flex size-2 rounded-full bg-[#f0b429]" />
+            </span>
+          )}
+        </div>
+        <HudAction
+          label={props.playing ? "Pause day" : "Play day"}
+          pressed={props.playing}
+          onClick={() => props.onPlaying(!props.playing)}
+        >
+          {props.playing ? <Pause /> : <Play />}
+        </HudAction>
+        <HudAction
+          label={readingsOpen ? "Hide readings" : "Show readings"}
+          pressed={showReadings}
+          expanded={readingsOpen}
+          onClick={() => props.onReadings?.(!readingsOpen)}
+        >
+          <Rows2 />
+        </HudAction>
+        <HudAction
+          label={props.inspectorOpen ? "Close inspector" : "Open inspector"}
+          pressed={props.inspectorOpen}
+          onClick={props.onToggleInspector}
+        >
+          <Settings2 />
+        </HudAction>
+      </div>
+
+      {showReadings && (
+        <div className="chrome-surface pointer-events-auto mt-1.5 rounded-2xl border border-white/10 bg-black/45 px-3 py-2 backdrop-blur-md">
+          <div className="flex items-center justify-between gap-3">
+            <p className="min-w-0 truncate text-[10px] tracking-[0.16em] text-white/50 uppercase">
+              {location}
+            </p>
+            <div className="flex shrink-0 items-center gap-1">
+              <p className="text-[10px] text-white/45">{shortDate(props.model.date)}</p>
+              <button
+                type="button"
+                onClick={props.onResetView}
+                className="min-h-11 rounded-lg px-2 text-[10px] tracking-[0.14em] text-white/55 uppercase"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+          {civilTime && (
+            <p className="mt-1 font-mono text-[11px] text-white/60 tabular-nums">Civil {civilTime}</p>
+          )}
+          <div className="mt-2 space-y-1">
+            {props.showSun && (
+              <Reading
+                label="Sun"
+                azimuth={formatAzimuth(props.sun.azimuth)}
+                altitude={formatDegrees(props.sun.altitude)}
+              />
+            )}
+            {props.showMoon && (
+              <Reading
+                label="Moon"
+                azimuth={formatAzimuth(props.moon.azimuth)}
+                altitude={formatDegrees(props.moon.altitude)}
+              />
+            )}
+          </div>
+          {props.showMoon && (
+            <p className="mt-1 text-[11px] text-white/55">
+              {props.moon.phaseLabel} · {Math.round(props.moon.fraction * 100)}% lit
+            </p>
+          )}
+          {props.showSun && (
+            <div className="mt-1 grid grid-cols-3 gap-1">
+              <SeekChip
+                label="Rise"
+                value={riseLabel(props.model, props.longitude, "sunrise")}
+                onClick={clickSeek(seek(props.model.times.sunrise), props.onMinutes)}
+              />
+              <SeekChip
+                label="Noon"
+                value={formatMeanTime(props.model.times.solarNoon, props.longitude)}
+                onClick={clickSeek(seek(props.model.times.solarNoon), props.onMinutes)}
+              />
+              <SeekChip
+                label="Set"
+                value={riseLabel(props.model, props.longitude, "sunset")}
+                onClick={clickSeek(seek(props.model.times.sunset), props.onMinutes)}
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function shortDate(date: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
+function Reading({
+  label,
+  azimuth,
+  altitude,
+}: {
+  label: string;
+  azimuth: string;
+  altitude: string;
+}) {
+  return (
+    <p className="grid grid-cols-[3.25rem_1fr_auto] items-baseline gap-x-2 font-mono text-[11px] tabular-nums">
+      <span className="tracking-[0.14em] text-white/45 uppercase">{label}</span>
+      <span className="text-right text-[#f7f3ea]">{azimuth}</span>
+      <span className="text-[#f7f3ea]">{altitude}</span>
+    </p>
+  );
+}
+
+function SeekChip({
+  label,
+  value,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  onClick?: () => void;
+}) {
+  const className =
+    "flex min-h-11 min-w-0 flex-1 flex-col justify-center rounded-lg px-1 text-left";
+  const body = (
+    <>
+      <span className="text-[9px] tracking-[0.14em] text-white/40 uppercase">{label}</span>
+      <span className="truncate font-mono text-[11px] text-[#f7f3ea] tabular-nums">{value}</span>
+    </>
+  );
+  if (!onClick) return <div className={className}>{body}</div>;
+  return (
+    <button type="button" onClick={onClick} aria-label={`Go to ${label.toLowerCase()}, ${value}`} className={className}>
+      {body}
+    </button>
+  );
+}
+
 function LocationChip({ label }: { label: string }) {
   return (
     <div className="chrome-surface inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/10 bg-black/45 px-3 py-1.5 backdrop-blur-md">
@@ -325,12 +515,14 @@ function HudAction({
   children,
   label,
   pressed,
+  expanded,
   onClick,
   className = "",
 }: {
   children: React.ReactNode;
   label: string;
   pressed?: boolean;
+  expanded?: boolean;
   onClick: () => void;
   className?: string;
 }) {
@@ -341,6 +533,7 @@ function HudAction({
       variant="outline"
       aria-label={label}
       aria-pressed={pressed}
+      aria-expanded={expanded}
       onClick={onClick}
       className={`chrome-surface size-11 border-white/10 bg-black/45 text-white backdrop-blur-md hover:bg-white/10 ${pressed ? "border-[#f0b429]/40 bg-[#f0b429]/15" : ""} ${className}`}
     >

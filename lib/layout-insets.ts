@@ -13,6 +13,8 @@ export interface LayoutConfig {
   breakpoint: Breakpoint;
   inspectorState: InspectorState;
   inspectorPinned: boolean;
+  /** Mobile portrait readings strip. Ignored while the inspector covers the frame. */
+  readingsOpen?: boolean;
 }
 
 const MD = 768;
@@ -38,11 +40,15 @@ const STAT_RAIL_WIDTH = {
 } as const;
 
 const HUD_TOP = {
-  mobile: 88,
   tablet: 96,
   desktop: 52,
   large: 52,
 } as const;
+
+/** iPhone portrait: dynamic island plus one viewfinder bar. */
+const MOBILE_FINDER_TOP = 120;
+/** Finder bar plus the extended readings strip. */
+const MOBILE_EXTENDED_TOP = 300;
 
 /** Shared top offset for pinned side panels and chrome (clears window controls). */
 export const STUDIO_CHROME_TOP_CLASS =
@@ -62,7 +68,8 @@ export function computeLayoutInsets(
   const { breakpoint, inspectorState, inspectorPinned } = config;
 
   if (breakpoint === "mobile") {
-    const top = HUD_TOP.mobile;
+    const extended = Boolean(config.readingsOpen) && inspectorState === "closed";
+    const top = extended ? MOBILE_EXTENDED_TOP : MOBILE_FINDER_TOP;
     let bottom = TIMELINE_PEEK + 12;
     if (inspectorState === "peek") bottom = INSPECTOR_PEEK + TIMELINE_PEEK + 8;
     if (inspectorState === "open") {

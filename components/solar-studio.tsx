@@ -123,6 +123,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   const [view, setView] = useState<StudioView>("default");
   const [fullscreen, setFullscreen] = useState(false);
   const [davinciMounted, setDavinciMounted] = useState(false);
+  const [readingsOpen, setReadingsOpen] = useState(false);
   const { davinciUnlocked } = useDavinciUnlock();
 
   const {
@@ -135,7 +136,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     closeInspector,
   } = useInspectorLayout();
 
-  const { insets } = useLayout(inspectorState, inspectorPinned);
+  const { insets } = useLayout(inspectorState, inspectorPinned, readingsOpen);
   const sceneInsets = useMemo(
     () =>
       fullscreen
@@ -561,6 +562,8 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
           onPlaying={setPlaying}
           onResetView={() => setResetSignal((value) => value + 1)}
           onToggleInspector={toggleInspector}
+          readingsOpen={readingsOpen}
+          onReadings={setReadingsOpen}
         />
 
       {showStudioChrome && showPinnedInspector && (
