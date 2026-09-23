@@ -1,8 +1,27 @@
 import type { ChromeTone } from "@/lib/light";
 import { MOON_ARC_COLOR, type AltitudeSample } from "@/lib/solar";
 
-const MIN_ALT = -30;
-const MAX_ALT = 90;
+/** Room under the horizon line so a deep night still reads as a curve. */
+const ALTITUDE_PAD_RATIO = 0.1;
+const MIN_ALTITUDE_SPAN = 8;
+
+function altitudeDomain(samples: AltitudeSample[], showSun: boolean, showMoon: boolean) {
+  let min = 0;
+  let max = 0;
+  for (const sample of samples) {
+    if (showSun) {
+      min = Math.min(min, sample.sunAltitude);
+      max = Math.max(max, sample.sunAltitude);
+    }
+    if (showMoon) {
+      min = Math.min(min, sample.moonAltitude);
+      max = Math.max(max, sample.moonAltitude);
+    }
+  }
+  const span = Math.max(max - min, MIN_ALTITUDE_SPAN);
+  const pad = Math.max(3, span * ALTITUDE_PAD_RATIO);
+  return { min: min - pad, max: max + pad };
+}
 
 export function AltitudeSparkline({
   samples,
@@ -25,13 +44,12 @@ export function AltitudeSparkline({
   if (samples.length < 2) return null;
   const width = 100;
   const height = 44;
+  const domain = altitudeDomain(samples, showSun, showMoon);
   const x = (minute: number) => (minute / rangeMinutes) * width;
   const xLabel = (minute: number) =>
     x(Math.min(Math.max(minute, 0), rangeMinutes)).toFixed(2);
-  const y = (altitude: number) => {
-    const clamped = Math.min(MAX_ALT, Math.max(MIN_ALT, altitude));
-    return height - ((clamped - MIN_ALT) / (MAX_ALT - MIN_ALT)) * height;
-  };
+  const y = (altitude: number) =>
+    height - ((altitude - domain.min) / (domain.max - domain.min)) * height;
   const line = (key: "sunAltitude" | "moonAltitude") =>
     samples
       .map((sample, index) => {
@@ -41,14 +59,27 @@ export function AltitudeSparkline({
       .join(" ");
   const playhead = xLabel(minutes);
   const nowMarker = nowOffset === undefined ? null : xLabel(nowOffset);
+  const horizonY = y(0).toFixed(2);
+  const sunColor = parchment ? "#5c3b1e" : "#ffe38a";
+  const moonColor = parchment ? "#8a6a45" : MOON_ARC_COLOR;
 
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
       preserveAspectRatio="none"
+      overflow="visible"
       aria-hidden
-      className="h-11 w-full"
+      className="h-11 w-full overflow-visible"
     >
+      <defs>
+        <filter id="sparkline-glow" x="-8%" y="-40%" width="116%" height="180%" colorInterpolationFilters="sRGB">
+          <feGaussianBlur stdDeviation="0.35 1.15" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
       {nowMarker !== null && (
         <line
           x1={nowMarker}
@@ -64,8 +95,8 @@ export function AltitudeSparkline({
       <line
         x1="0"
         x2={String(width)}
-        y1={y(0).toFixed(2)}
-        y2={y(0).toFixed(2)}
+        y1={horizonY}
+        y2={horizonY}
         stroke={parchment ? "rgba(58,36,18,0.35)" : "rgba(255,255,255,0.28)"}
         strokeWidth="1"
         vectorEffect="non-scaling-stroke"
@@ -74,19 +105,25 @@ export function AltitudeSparkline({
         <path
           d={line("moonAltitude")}
           fill="none"
-          stroke={parchment ? "#8a6a45" : MOON_ARC_COLOR}
-          strokeWidth="1.25"
+          stroke={moonColor}
+          strokeWidth="1.85"
+          strokeLinejoin="round"
+          strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
-          opacity="0.75"
+          opacity="0.9"
+          filter="url(#sparkline-glow)"
         />
       )}
       {showSun && (
         <path
           d={line("sunAltitude")}
           fill="none"
-          stroke={parchment ? "#5c3b1e" : "#ffe38a"}
-          strokeWidth="1.5"
+          stroke={sunColor}
+          strokeWidth="2.25"
+          strokeLinejoin="round"
+          strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
+          filter="url(#sparkline-glow)"
         />
       )}
       <line

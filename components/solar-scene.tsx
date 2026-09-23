@@ -19,6 +19,7 @@ import {
   GNOMON_HEIGHT,
   SKY_RADIUS,
   project,
+  splitPathRuns,
   type AzimuthFan,
   type HorizonMarks,
   type MoonPlacement,
@@ -447,34 +448,48 @@ function Gnomon() {
 }
 
 function SkyArc({ arc }: { arc: SkyPath }) {
-  const geometry = useMemo(() => tubeFrom(arc.points, arc.emphasized ? 0.028 : 0.015, arc.closed), [
-    arc.points,
-    arc.emphasized,
-    arc.closed,
-  ]);
-  const glow = useMemo(
-    () => (arc.emphasized ? tubeFrom(arc.points, 0.07, arc.closed) : null),
-    [arc.points, arc.emphasized, arc.closed],
+  const aboveRuns = useMemo(() => splitPathRuns(arc.points), [arc.points]);
+  const underRuns = useMemo(() => splitPathRuns(arc.underPoints), [arc.underPoints]);
+  const aboveTubes = useMemo(
+    () =>
+      tubesFromRuns(
+        aboveRuns,
+        arc.emphasized ? 0.028 : 0.015,
+        arc.closed && aboveRuns.length === 1,
+      ),
+    [aboveRuns, arc.emphasized, arc.closed],
   );
-  const under = useMemo(
-    () => tubeFrom(arc.underPoints, arc.emphasized ? 0.011 : 0.006, arc.underClosed),
-    [arc.underPoints, arc.emphasized, arc.underClosed],
+  const glowTubes = useMemo(
+    () =>
+      arc.emphasized
+        ? tubesFromRuns(aboveRuns, 0.07, arc.closed && aboveRuns.length === 1)
+        : [],
+    [aboveRuns, arc.emphasized, arc.closed],
+  );
+  const underTubes = useMemo(
+    () =>
+      tubesFromRuns(
+        underRuns,
+        arc.emphasized ? 0.011 : 0.006,
+        arc.underClosed && underRuns.length === 1,
+      ),
+    [underRuns, arc.emphasized, arc.underClosed],
   );
 
   useEffect(() => {
     return () => {
-      geometry?.dispose();
-      glow?.dispose();
-      under?.dispose();
+      for (const geometry of [...aboveTubes, ...glowTubes, ...underTubes]) {
+        geometry.dispose();
+      }
     };
-  }, [geometry, glow, under]);
+  }, [aboveTubes, glowTubes, underTubes]);
 
-  if (!geometry && !under) return null;
+  if (aboveTubes.length === 0 && underTubes.length === 0) return null;
 
   return (
     <group>
-      {under && (
-        <mesh geometry={under} renderOrder={1}>
+      {underTubes.map((geometry, index) => (
+        <mesh key={`under-${index}`} geometry={geometry} renderOrder={1}>
           <meshBasicMaterial
             color={arc.color}
             transparent
@@ -483,9 +498,9 @@ function SkyArc({ arc }: { arc: SkyPath }) {
             depthWrite={false}
           />
         </mesh>
-      )}
-      {glow && (
-        <mesh geometry={glow} renderOrder={4}>
+      ))}
+      {glowTubes.map((geometry, index) => (
+        <mesh key={`glow-${index}`} geometry={geometry} renderOrder={4}>
           <meshBasicMaterial
             color={arc.color}
             transparent
@@ -494,9 +509,9 @@ function SkyArc({ arc }: { arc: SkyPath }) {
             depthWrite={false}
           />
         </mesh>
-      )}
-      {geometry && (
-        <mesh geometry={geometry} renderOrder={4}>
+      ))}
+      {aboveTubes.map((geometry, index) => (
+        <mesh key={`above-${index}`} geometry={geometry} renderOrder={4}>
           <meshBasicMaterial
             color={arc.color}
             transparent
@@ -505,7 +520,7 @@ function SkyArc({ arc }: { arc: SkyPath }) {
             depthWrite={false}
           />
         </mesh>
-      )}
+      ))}
       {arc.apex && (
         <Html
           position={[arc.apex.x, arc.apex.y + 0.32, arc.apex.z]}
@@ -532,6 +547,16 @@ function SkyArc({ arc }: { arc: SkyPath }) {
       )}
     </group>
   );
+}
+
+function tubesFromRuns(
+  runs: Vec3[][],
+  radius: number,
+  closed: boolean,
+): THREE.TubeGeometry[] {
+  return runs
+    .map((run) => tubeFrom(run, radius, closed && runs.length === 1))
+    .filter((geometry): geometry is THREE.TubeGeometry => geometry !== null);
 }
 
 function tubeFrom(points: Vec3[], radius: number, closed: boolean) {
