@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { formatCivilTime, timezoneAt } from "@/lib/civil-time";
+import { formatCivilClock, formatCivilTime, timezoneAt } from "@/lib/civil-time";
 import {
   formatAu,
   formatAzimuth,
@@ -53,6 +53,7 @@ interface SceneHudProps {
   latitude: number;
   longitude: number;
   minutes: number;
+  realtime?: boolean;
   playing: boolean;
   showSun: boolean;
   showMoon: boolean;
@@ -79,23 +80,34 @@ export function SceneHud(props: SceneHudProps) {
 
 function AstrolabeSceneHud(props: SceneHudProps) {
   const location = locationLabel(props.latitude, props.longitude);
-  const timeLabel = formatMinutes(props.minutes);
+  const meanLabel = formatMinutes(props.minutes);
   const dateLabel = formatLongDate(props.model.date);
   const timeZone = useMemo(
     () => timezoneAt(props.latitude, props.longitude),
     [props.latitude, props.longitude],
   );
-  const civilTime = useMemo(() => {
-    if (!timeZone) return null;
-    const instant = instantAtMinutes(
-      props.model.date.getUTCFullYear(),
-      props.model.date.getUTCMonth(),
-      props.model.date.getUTCDate(),
-      props.minutes,
-      props.longitude,
-    );
-    return formatCivilTime(instant, timeZone);
-  }, [timeZone, props.model.date, props.minutes, props.longitude]);
+  const clockInstant = useMemo(
+    () =>
+      instantAtMinutes(
+        props.model.date.getUTCFullYear(),
+        props.model.date.getUTCMonth(),
+        props.model.date.getUTCDate(),
+        props.minutes,
+        props.longitude,
+      ),
+    [props.model.date, props.minutes, props.longitude],
+  );
+  const civilClock = useMemo(
+    () => (timeZone ? formatCivilClock(clockInstant, timeZone) : null),
+    [clockInstant, timeZone],
+  );
+  const civilTime = useMemo(
+    () => (timeZone ? formatCivilTime(clockInstant, timeZone) : null),
+    [clockInstant, timeZone],
+  );
+  const timeLabel = props.realtime && civilClock ? civilClock : meanLabel;
+  const meanSolarNote =
+    props.realtime && civilClock ? `${meanLabel} mean solar` : civilTime ? `Civil ${civilTime}` : null;
   const seek = (instant: Date | null) => seekMinute(instant, props.model.date, props.longitude);
   const wide = props.breakpoint === "tablet" || props.breakpoint === "desktop" || props.breakpoint === "large";
   const tone = props.tone ?? "night";
@@ -106,7 +118,7 @@ function AstrolabeSceneHud(props: SceneHudProps) {
         {...props}
         location={location}
         timeLabel={timeLabel}
-        civilTime={civilTime}
+        meanSolarNote={meanSolarNote}
         seek={seek}
       />
     );
@@ -157,7 +169,7 @@ function AstrolabeSceneHud(props: SceneHudProps) {
       >
         <div className="pointer-events-auto flex w-full max-w-xl items-center justify-between gap-3 px-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <TimeChip time={timeLabel} date={dateLabel} civil={civilTime} playing={props.playing} />
+            <TimeChip time={timeLabel} date={dateLabel} civil={meanSolarNote} playing={props.playing} />
             {props.showSun && <PhaseChip phase={props.sun.lightingPhase} tone={tone} />}
           </div>
           <div className="flex shrink-0 items-center gap-1.5">{actionButtons}</div>
@@ -174,7 +186,7 @@ function AstrolabeSceneHud(props: SceneHudProps) {
         <div className="pointer-events-auto flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <LocationChip label={location} />
-            <TimeChip time={timeLabel} date={dateLabel} civil={civilTime} playing={props.playing} />
+            <TimeChip time={timeLabel} date={dateLabel} civil={meanSolarNote} playing={props.playing} />
             {props.showSun && <PhaseChip phase={props.sun.lightingPhase} tone={tone} />}
           </div>
 
@@ -262,13 +274,13 @@ function AstrolabeSceneHud(props: SceneHudProps) {
 function PortraitFinder({
   location,
   timeLabel,
-  civilTime,
+  meanSolarNote,
   seek,
   ...props
 }: SceneHudProps & {
   location: string;
   timeLabel: string;
-  civilTime: string | null;
+  meanSolarNote: string | null;
   seek: (instant: Date | null) => number | null;
 }) {
   const readingsOpen = props.readingsOpen ?? false;
@@ -334,8 +346,8 @@ function PortraitFinder({
               </button>
             </div>
           </div>
-          {civilTime && (
-            <p className="mt-1 font-mono text-[11px] text-white/60 tabular-nums">Civil {civilTime}</p>
+          {meanSolarNote && (
+            <p className="mt-1 font-mono text-[11px] text-white/60 tabular-nums">{meanSolarNote}</p>
           )}
           <div className="mt-2 space-y-1">
             {props.showSun && (
@@ -565,6 +577,16 @@ function OrrerySceneHud(props: SceneHudProps) {
     bodyById(props.orreryModel, props.focusPlanet) ?? bodyById(props.orreryModel, "earth");
   const dateLabel = formatLongDate(props.orreryModel.instant);
   const utcTime = formatUtcTime(props.orreryModel.instant);
+  const timeZone = useMemo(
+    () => timezoneAt(props.latitude, props.longitude),
+    [props.latitude, props.longitude],
+  );
+  const civilClock = useMemo(
+    () => (timeZone ? formatCivilClock(props.orreryModel.instant, timeZone) : null),
+    [props.orreryModel.instant, timeZone],
+  );
+  const timeLabel = props.realtime && civilClock ? civilClock : utcTime;
+  const timeNote = props.realtime && civilClock ? `${utcTime} UTC` : null;
   const wide = props.breakpoint === "tablet" || props.breakpoint === "desktop" || props.breakpoint === "large";
   const tone = props.tone ?? "night";
   const hudTopClass = "pt-[calc(0.75rem+env(safe-area-inset-top,0px))]";
@@ -613,7 +635,7 @@ function OrrerySceneHud(props: SceneHudProps) {
       >
         <div className="pointer-events-auto flex w-full max-w-xl items-center justify-between gap-3 px-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <TimeChip time={utcTime} date={dateLabel} civil={null} playing={props.playing} />
+            <TimeChip time={timeLabel} date={dateLabel} civil={timeNote} playing={props.playing} />
             {focusBody && (
               <span
                 className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/45 px-2.5 py-1 text-[10px] tracking-[0.12em] uppercase backdrop-blur-md"
@@ -635,7 +657,7 @@ function OrrerySceneHud(props: SceneHudProps) {
         <div className="pointer-events-auto flex items-center gap-1.5">
           <div className="chrome-surface flex min-w-0 flex-1 items-center gap-2 rounded-full border border-white/10 bg-black/45 px-3 py-1.5 backdrop-blur-md">
             <Clock className="size-3.5 shrink-0 text-[#f0b429]" />
-            <p className="font-mono text-base text-[#f7f3ea] tabular-nums">{utcTime}</p>
+            <p className="font-mono text-base text-[#f7f3ea] tabular-nums">{timeLabel}</p>
             {focusBody && (
               <p className="min-w-0 truncate text-[10px] tracking-[0.14em] text-white/55 uppercase">
                 {focusBody.name}
@@ -658,7 +680,7 @@ function OrrerySceneHud(props: SceneHudProps) {
             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/45 px-2.5 py-1 text-[10px] tracking-[0.12em] text-white/60 uppercase backdrop-blur-md">
               Heliocentric model
             </span>
-            <TimeChip time={utcTime} date={dateLabel} civil={null} playing={props.playing} />
+            <TimeChip time={timeLabel} date={dateLabel} civil={timeNote} playing={props.playing} />
           </div>
           {focusBody && (
             <div className="flex flex-wrap gap-1.5">
