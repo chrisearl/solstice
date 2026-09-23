@@ -106,11 +106,11 @@ export function AltitudeSparkline({
           d={line("moonAltitude")}
           fill="none"
           stroke={moonColor}
-          strokeWidth="1.85"
+          strokeWidth="1.55"
           strokeLinejoin="round"
           strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
-          opacity="0.9"
+          opacity="0.72"
           filter="url(#sparkline-glow)"
         />
       )}
@@ -119,7 +119,7 @@ export function AltitudeSparkline({
           d={line("sunAltitude")}
           fill="none"
           stroke={sunColor}
-          strokeWidth="2.25"
+          strokeWidth="2.5"
           strokeLinejoin="round"
           strokeLinecap="round"
           vectorEffect="non-scaling-stroke"

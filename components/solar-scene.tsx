@@ -19,6 +19,7 @@ import { createAppliancePoints } from "@/lib/scene-framing";
 import { createCompassTexture } from "@/lib/compass-texture";
 import type { LayoutInsets } from "@/lib/layout-insets";
 import {
+  ARC_HIERARCHY,
   DISC_RADIUS,
   GNOMON_HEIGHT,
   MOON_ARC_DOT,
@@ -368,6 +369,7 @@ function SkyArc({ arc, variant }: { arc: SkyPath; variant?: "moon" }) {
 }
 
 function MoonSkyArc({ arc }: { arc: SkyPath }) {
+  const style = ARC_HIERARCHY.moon;
   const aboveRuns = useMemo(() => splitPathRuns(arc.points), [arc.points]);
   const underRuns = useMemo(() => splitPathRuns(arc.underPoints), [arc.underPoints]);
 
@@ -377,8 +379,8 @@ function MoonSkyArc({ arc }: { arc: SkyPath }) {
         runs={underRuns}
         closed={arc.underClosed}
         color={arc.color}
-        lineWidth={1}
-        opacity={0.18}
+        lineWidth={style.underLineWidth}
+        opacity={style.underOpacity}
         dashSize={MOON_ARC_DOT.dashSize}
         gapSize={MOON_ARC_DOT.gapSize}
         renderOrder={1}
@@ -386,17 +388,18 @@ function MoonSkyArc({ arc }: { arc: SkyPath }) {
       <FadedDottedRuns
         runs={aboveRuns}
         color={arc.color}
-        lineWidth={1.45}
-        opacity={0.84}
+        lineWidth={style.lineWidth}
+        opacity={style.opacity}
         renderOrder={4}
       />
-      <ArcLabel arc={arc} />
+      <ArcLabel arc={arc} labelOpacity={style.labelOpacity} />
     </group>
   );
 }
 
 /** Reference paths sit behind the day being shown: thin, dim, and broken. */
 function QuietSkyArc({ arc }: { arc: SkyPath }) {
+  const style = ARC_HIERARCHY.reference;
   const aboveRuns = useMemo(() => splitPathRuns(arc.points), [arc.points]);
   const underRuns = useMemo(() => splitPathRuns(arc.underPoints), [arc.underPoints]);
 
@@ -406,8 +409,8 @@ function QuietSkyArc({ arc }: { arc: SkyPath }) {
         runs={underRuns}
         closed={arc.underClosed}
         color={arc.color}
-        lineWidth={1}
-        opacity={0.2}
+        lineWidth={style.underLineWidth}
+        opacity={style.underOpacity}
         dashSize={0.16}
         gapSize={0.18}
         renderOrder={1}
@@ -416,31 +419,37 @@ function QuietSkyArc({ arc }: { arc: SkyPath }) {
         runs={aboveRuns}
         closed={arc.closed}
         color={arc.color}
-        lineWidth={1.25}
-        opacity={0.38}
+        lineWidth={style.lineWidth}
+        opacity={style.opacity}
         dashSize={0.28}
         gapSize={0.22}
         renderOrder={3}
       />
-      <ArcLabel arc={arc} />
+      <ArcLabel arc={arc} labelOpacity={style.labelOpacity} />
     </group>
   );
 }
 
 function SolidSkyArc({ arc }: { arc: SkyPath }) {
+  const style = ARC_HIERARCHY.selected;
   const aboveRuns = useMemo(() => splitPathRuns(arc.points), [arc.points]);
   const underRuns = useMemo(() => splitPathRuns(arc.underPoints), [arc.underPoints]);
   const aboveTubes = useMemo(
-    () => tubesFromRuns(aboveRuns, 0.028, arc.closed && aboveRuns.length === 1),
-    [aboveRuns, arc.closed],
+    () => tubesFromRuns(aboveRuns, style.tubeRadius, arc.closed && aboveRuns.length === 1),
+    [aboveRuns, arc.closed, style.tubeRadius],
   );
   const glowTubes = useMemo(
-    () => tubesFromRuns(aboveRuns, 0.07, arc.closed && aboveRuns.length === 1),
-    [aboveRuns, arc.closed],
+    () => tubesFromRuns(aboveRuns, style.glowRadius, arc.closed && aboveRuns.length === 1),
+    [aboveRuns, arc.closed, style.glowRadius],
   );
   const underTubes = useMemo(
-    () => tubesFromRuns(underRuns, 0.011, arc.underClosed && underRuns.length === 1),
-    [underRuns, arc.underClosed],
+    () =>
+      tubesFromRuns(
+        underRuns,
+        style.underTubeRadius,
+        arc.underClosed && underRuns.length === 1,
+      ),
+    [underRuns, arc.underClosed, style.underTubeRadius],
   );
 
   useEffect(() => {
@@ -460,7 +469,7 @@ function SolidSkyArc({ arc }: { arc: SkyPath }) {
           <meshBasicMaterial
             color={arc.color}
             transparent
-            opacity={0.28}
+            opacity={style.underOpacity}
             toneMapped={false}
             depthWrite={false}
           />
@@ -471,7 +480,7 @@ function SolidSkyArc({ arc }: { arc: SkyPath }) {
           <meshBasicMaterial
             color={arc.color}
             transparent
-            opacity={0.16}
+            opacity={style.glowOpacity}
             toneMapped={false}
             depthWrite={false}
           />
@@ -482,13 +491,13 @@ function SolidSkyArc({ arc }: { arc: SkyPath }) {
           <meshBasicMaterial
             color={arc.color}
             transparent
-            opacity={1}
+            opacity={style.opacity}
             toneMapped={false}
             depthWrite={false}
           />
         </mesh>
       ))}
-      <ArcLabel arc={arc} />
+      <ArcLabel arc={arc} labelOpacity={style.labelOpacity} />
     </group>
   );
 }
@@ -588,9 +597,10 @@ function linePoints(points: Vec3[], closed: boolean): [number, number, number][]
   return mapped;
 }
 
-function ArcLabel({ arc }: { arc: SkyPath }) {
+function ArcLabel({ arc, labelOpacity }: { arc: SkyPath; labelOpacity?: number }) {
   if (!arc.apex) return null;
   const quiet = !arc.emphasized;
+  const textOpacity = labelOpacity ?? (quiet ? ARC_HIERARCHY.reference.labelOpacity : ARC_HIERARCHY.selected.labelOpacity);
   return (
     <Html
       position={[arc.apex.x, arc.apex.y + 0.32, arc.apex.z]}
@@ -607,7 +617,7 @@ function ArcLabel({ arc }: { arc: SkyPath }) {
           letterSpacing: "0.14em",
           textTransform: "uppercase",
           color: arc.color,
-          opacity: quiet ? 0.48 : 1,
+          opacity: textOpacity,
           textShadow: quiet ? "0 1px 6px rgba(0,0,0,0.7)" : "0 2px 10px rgba(0,0,0,0.85)",
         }}
       >
