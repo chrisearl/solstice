@@ -32,6 +32,18 @@ export const PHASE_TEXT: Record<SunLightingPhase, string> = {
 
 export type ChromeTone = "night" | "parchment";
 
+/** Semi-transparent sepia wash for the Da Vinci horizon disc. */
+export const DAVINCI_DISC_FILL_COLOR = "#9a7b52";
+/** Cool slate contrast for deep night on parchment. */
+export const DAVINCI_DISC_NIGHT_FILL_COLOR = "#4a6288";
+export const DAVINCI_DISC_FILL_OPACITY = 0.36;
+
+export function davinciDiscFillColor(phase: SunLightingPhase): string {
+  return phase === "night" || phase === "polar_night"
+    ? DAVINCI_DISC_NIGHT_FILL_COLOR
+    : DAVINCI_DISC_FILL_COLOR;
+}
+
 /** Sepia stand-ins for the night-sky phase bands, dark bistre through pale wash. */
 const PARCHMENT_PHASE_COLORS: Record<SunLightingPhase, string> = {
   polar_night: "#2b190d",
