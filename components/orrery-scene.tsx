@@ -13,6 +13,7 @@ import {
   useState,
 } from "react";
 import * as THREE from "three";
+import { OrreryMarkings } from "@/components/orrery-markings";
 import { watchContextLoss } from "@/components/scene-boundary";
 import { readLiveOrrery, useSolarMotion } from "@/components/solar-motion";
 import {
@@ -115,6 +116,8 @@ function OrreryInstrument({
           />
         );
       })}
+
+      <OrreryMarkings model={liveModel} theme="night" />
 
       {liveModel.bodies
         .filter((body) => body.id !== "sun")

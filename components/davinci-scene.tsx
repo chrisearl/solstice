@@ -53,6 +53,15 @@ const CARDINALS = [
   ["W", 270],
 ] as const;
 
+const INTERCARDINALS = [
+  ["NE", 45],
+  ["SE", 135],
+  ["SW", 225],
+  ["NW", 315],
+] as const;
+
+const DEGREE_LABELS = [30, 60, 120, 150, 210, 240, 300, 330] as const;
+
 export interface DavinciSceneProps {
   active: boolean;
   arcs: SolarArc[];
@@ -188,16 +197,38 @@ function InkCompass({ sun }: { sun: SunPlacement }) {
 
   const ticks = useMemo(() => {
     const pairs: [number, number, number][] = [];
-    for (let bearing = 0; bearing < 360; bearing += 10) {
-      const major = bearing % 90 === 0;
-      const mid = bearing % 30 === 0;
-      const inner = DISC_RADIUS * (major ? 0.9 : mid ? 0.945 : 0.968);
+    for (let bearing = 0; bearing < 360; bearing += 5) {
+      const major = bearing % 30 === 0;
+      const mid = bearing % 10 === 0;
+      const inner = DISC_RADIUS * (major ? 0.9 : mid ? 0.935 : 0.955);
       const outer = DISC_RADIUS * 0.995;
       const a = project(bearing, 0, inner);
       const b = project(bearing, 0, outer);
       pairs.push([a.x, 0.03, a.z], [b.x, 0.03, b.z]);
     }
     return pairs;
+  }, []);
+
+  const spokes = useMemo(() => {
+    const pairs: [number, number, number][] = [];
+    for (let bearing = 0; bearing < 360; bearing += 30) {
+      const inner = project(bearing, 0, DISC_RADIUS * 0.04);
+      const outer = project(bearing, 0, SKY_RADIUS);
+      pairs.push([inner.x, 0.028, inner.z], [outer.x, 0.028, outer.z]);
+    }
+    return pairs;
+  }, []);
+
+  const northChevron = useMemo(() => {
+    const base = project(0, 0, DISC_RADIUS * 0.945);
+    const left = project(350, 0, DISC_RADIUS * 0.91);
+    const right = project(10, 0, DISC_RADIUS * 0.91);
+    return [
+      [base.x, 0.034, base.z],
+      [left.x, 0.034, left.z],
+      [right.x, 0.034, right.z],
+      [base.x, 0.034, base.z],
+    ] as [number, number, number][];
   }, []);
 
   return (
@@ -213,8 +244,18 @@ function InkCompass({ sun }: { sun: SunPlacement }) {
           depthWrite={false}
         />
       </mesh>
+      <InkRing radius={SKY_RADIUS * 0.28} y={0.022} lineWidth={0.9} opacity={0.35} />
+      <InkRing radius={SKY_RADIUS * 0.5} y={0.023} lineWidth={0.9} opacity={0.35} />
       <InkRing radius={DISC_RADIUS} y={0.02} lineWidth={1.8} opacity={0.92} />
       <InkRing radius={SKY_RADIUS} y={0.025} lineWidth={1.15} opacity={0.55} />
+      <Line
+        points={spokes}
+        segments
+        color={INK}
+        lineWidth={0.85}
+        transparent
+        opacity={0.38}
+      />
       <Line
         points={ticks}
         segments
@@ -222,6 +263,13 @@ function InkCompass({ sun }: { sun: SunPlacement }) {
         lineWidth={1.15}
         transparent
         opacity={0.72}
+      />
+      <Line
+        points={northChevron}
+        color={INK}
+        lineWidth={1.6}
+        transparent
+        opacity={0.88}
       />
       {CARDINALS.map(([label, azimuth]) => {
         const point = project(azimuth, 0, DISC_RADIUS + 0.42);
@@ -243,6 +291,56 @@ function InkCompass({ sun }: { sun: SunPlacement }) {
               }}
             >
               {label}
+            </div>
+          </Html>
+        );
+      })}
+      {INTERCARDINALS.map(([label, azimuth]) => {
+        const point = project(azimuth, 0, DISC_RADIUS + 0.28);
+        return (
+          <Html
+            key={label}
+            position={[point.x, 0.04, point.z]}
+            center
+            distanceFactor={18}
+            zIndexRange={[12, 0]}
+            style={{ pointerEvents: "none" }}
+          >
+            <div
+              style={{
+                color: INK,
+                fontSize: 10,
+                letterSpacing: "0.12em",
+                lineHeight: 1,
+                opacity: 0.72,
+              }}
+            >
+              {label}
+            </div>
+          </Html>
+        );
+      })}
+      {DEGREE_LABELS.map((bearing) => {
+        const point = project(bearing, 0, DISC_RADIUS * 0.68);
+        return (
+          <Html
+            key={bearing}
+            position={[point.x, 0.04, point.z]}
+            center
+            distanceFactor={18}
+            zIndexRange={[12, 0]}
+            style={{ pointerEvents: "none" }}
+          >
+            <div
+              style={{
+                color: INK,
+                fontSize: 10,
+                letterSpacing: "0.04em",
+                lineHeight: 1,
+                opacity: 0.55,
+              }}
+            >
+              {bearing}
             </div>
           </Html>
         );

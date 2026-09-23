@@ -51,6 +51,45 @@ export function createCompassTexture(): THREE.CanvasTexture {
   strokeRing(HORIZON_RATIO, "rgba(232, 224, 208, 0.55)", 4);
   strokeRing(0.985, "rgba(186, 198, 214, 0.28)", 3);
 
+  const crossExtent = radius * 0.12;
+  ctx.beginPath();
+  ctx.moveTo(center, center - crossExtent);
+  ctx.lineTo(center, center + crossExtent);
+  ctx.moveTo(center - crossExtent, center);
+  ctx.lineTo(center + crossExtent, center);
+  ctx.strokeStyle = "rgba(186, 198, 214, 0.22)";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  const innerFleurRadius = radius * 0.28 * HORIZON_RATIO;
+  for (const bearing of [45, 135, 225, 315]) {
+    const pos = pointAt(bearing, innerFleurRadius);
+    const size = radius * 0.008;
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y - size);
+    ctx.lineTo(pos.x + size, pos.y);
+    ctx.lineTo(pos.x, pos.y + size);
+    ctx.lineTo(pos.x - size, pos.y);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(196, 206, 220, 0.35)";
+    ctx.fill();
+  }
+
+  for (let bearing = 0; bearing < 360; bearing += 10) {
+    if (bearing % 30 === 0) continue;
+    const mid = bearing % 30 === 10 || bearing % 30 === 20;
+    const tickLen = radius * (mid ? 0.014 : 0.009);
+    const ringR = radius * HORIZON_RATIO;
+    const inner = pointAt(bearing, ringR - tickLen);
+    const outer = pointAt(bearing, ringR + tickLen);
+    ctx.beginPath();
+    ctx.moveTo(inner.x, inner.y);
+    ctx.lineTo(outer.x, outer.y);
+    ctx.strokeStyle = mid ? "rgba(196, 206, 220, 0.32)" : "rgba(186, 198, 214, 0.18)";
+    ctx.lineWidth = mid ? 2 : 1;
+    ctx.stroke();
+  }
+
   for (let bearing = 0; bearing < 360; bearing += 30) {
     const inner = pointAt(bearing, radius * 0.04);
     const outer = pointAt(bearing, radius * HORIZON_RATIO);
