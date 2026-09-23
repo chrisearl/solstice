@@ -1,10 +1,9 @@
 "use client";
 
 import { Html, Line, OrbitControls } from "@react-three/drei";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import {
   type ComponentRef,
-  type RefObject,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -12,6 +11,10 @@ import {
   useState,
 } from "react";
 import * as THREE from "three";
+import { FrameCamera } from "@/components/frame-camera";
+import { watchContextLoss } from "@/components/scene-boundary";
+import { readLiveBodies, useSolarMotion } from "@/components/solar-motion";
+import { createAppliancePoints } from "@/lib/scene-framing";
 import {
   DAVINCI_HATCH_DENSITY,
   DAVINCI_HATCH_WEIGHT,
@@ -35,28 +38,7 @@ import {
 
 const INK = "#3a2412";
 const PAPER = "#dfcdad";
-const LOOK_TARGET = new THREE.Vector3(0, 0.75, 0);
-const HOME_DIRECTION = new THREE.Vector3(5.15, 2.8, 6.35).normalize();
-const APPLIANCE_POINTS = (() => {
-  const points: THREE.Vector3[] = [];
-  for (let i = 0; i < 36; i++) {
-    const angle = (i / 36) * Math.PI * 2;
-    points.push(
-      new THREE.Vector3(Math.sin(angle) * (DISC_RADIUS + 0.7), 0.04, Math.cos(angle) * (DISC_RADIUS + 0.7)),
-    );
-  }
-  for (const altitudeDeg of [25, 55, 80]) {
-    const altitude = (altitudeDeg * Math.PI) / 180;
-    const horizontal = Math.cos(altitude) * SKY_RADIUS;
-    const y = Math.sin(altitude) * SKY_RADIUS + 0.45;
-    for (let i = 0; i < 12; i++) {
-      const angle = (i / 12) * Math.PI * 2;
-      points.push(new THREE.Vector3(Math.sin(angle) * horizontal, y, Math.cos(angle) * horizontal));
-    }
-  }
-  points.push(new THREE.Vector3(0, SKY_RADIUS + 0.7, 0));
-  return points;
-})();
+const CODEX_APPLIANCE_POINTS = createAppliancePoints(0.7);
 
 const CARDINALS = [
   ["N", 0],
@@ -76,6 +58,7 @@ export interface DavinciSceneProps {
   showMoon: boolean;
   resetSignal: number;
   layoutInsets: LayoutInsets;
+  onContextLost?: () => void;
 }
 
 export function DavinciScene({
@@ -89,6 +72,7 @@ export function DavinciScene({
   showMoon,
   resetSignal,
   layoutInsets,
+  onContextLost,
 }: DavinciSceneProps) {
   const reducedMotion = usePrefersReducedMotion();
 
@@ -106,6 +90,7 @@ export function DavinciScene({
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.NoToneMapping;
         gl.setClearColor(PAPER);
+        watchContextLoss(gl.domElement, onContextLost);
       }}
     >
       <color attach="background" args={[PAPER]} />
@@ -138,11 +123,6 @@ function InkInstrument({
   reducedMotion,
 }: Omit<DavinciSceneProps, "active"> & { reducedMotion: boolean }) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
-  const sunLight = useMemo(() => rakeFromBearing(sun.position), [sun.position]);
-  const moonLight = useMemo(
-    () => lightFromSun(moon.position, sun.position),
-    [moon.position, sun.position],
-  );
 
   return (
     <>
@@ -152,20 +132,8 @@ function InkInstrument({
         {showSun &&
           arcs.map((arc) => <InkSkyArc key={arc.id} arc={arc} variant={arc.id} />)}
         {showMoon && <InkSkyArc arc={moonArc} variant="moon" />}
-        {showSun && (
-          <InkOrb
-            position={sun.position}
-            radius={sun.aboveHorizon ? (sun.altitude < 8 ? 0.4 : 0.46) : 0.32}
-            light={sunLight}
-          />
-        )}
-        {showMoon && (
-          <InkOrb
-            position={moon.position}
-            radius={moon.aboveHorizon ? 0.4 : 0.3}
-            light={moonLight}
-          />
-        )}
+        {showSun && <InkOrb track="sun" sun={sun} moon={moon} />}
+        {showMoon && <InkOrb track="moon" sun={sun} moon={moon} />}
       </group>
       <OrbitControls
         ref={controls}
@@ -185,6 +153,7 @@ function InkInstrument({
         resetSignal={resetSignal}
         controls={controls}
         layoutInsets={layoutInsets}
+        appliancePoints={CODEX_APPLIANCE_POINTS}
       />
     </>
   );
@@ -336,15 +305,17 @@ function InkSkyArc({
 }
 
 function InkOrb({
-  position,
-  radius,
-  light,
+  track,
+  sun,
+  moon,
 }: {
-  position: Vec3;
-  radius: number;
-  light: THREE.Vector3;
+  track: "sun" | "moon";
+  sun: SunPlacement;
+  moon: MoonPlacement;
 }) {
+  const mesh = useRef<THREE.Mesh>(null);
   const material = useRef<THREE.ShaderMaterial>(null);
+  const motion = useSolarMotion();
   const uniforms = useMemo(
     () => ({
       uLightDirection: { value: new THREE.Vector3(0.4, 0.7, 0.5).normalize() },
@@ -356,17 +327,46 @@ function InkOrb({
     [],
   );
 
-  useLayoutEffect(() => {
+  const apply = (nextSun: SunPlacement, nextMoon: MoonPlacement) => {
+    const position = track === "sun" ? nextSun.position : nextMoon.position;
+    const radius =
+      track === "sun"
+        ? nextSun.aboveHorizon
+          ? nextSun.altitude < 8
+            ? 0.4
+            : 0.46
+          : 0.32
+        : nextMoon.aboveHorizon
+          ? 0.4
+          : 0.3;
+    mesh.current?.position.set(position.x, position.y, position.z);
+    mesh.current?.scale.setScalar(radius);
+    const light =
+      track === "sun"
+        ? rakeFromBearing(nextSun.position)
+        : lightFromSun(nextMoon.position, nextSun.position);
     const shader = material.current;
     if (!shader) return;
     shader.uniforms.uLightDirection.value.copy(light);
     shader.uniforms.uHatchDensity.value = DAVINCI_HATCH_DENSITY;
     shader.uniforms.uLineWeight.value = DAVINCI_HATCH_WEIGHT;
-  }, [light]);
+  };
+
+  useLayoutEffect(() => {
+    if (motion.playing.current) return;
+    apply(sun, moon);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [motion, sun, moon, track]);
+
+  useFrame(() => {
+    if (!motion.playing.current) return;
+    const live = readLiveBodies(motion);
+    apply(live.sun, live.moon);
+  });
 
   return (
-    <mesh position={[position.x, position.y, position.z]} renderOrder={6}>
-      <sphereGeometry args={[radius, 48, 48]} />
+    <mesh ref={mesh} renderOrder={6}>
+      <sphereGeometry args={[1, 48, 48]} />
       <shaderMaterial
         ref={material}
         toneMapped={false}
@@ -445,81 +445,6 @@ function InkStroke({
       depthWrite={false}
     />
   );
-}
-
-function FrameCamera({
-  resetSignal,
-  controls,
-  layoutInsets,
-}: {
-  resetSignal: number;
-  controls: RefObject<ComponentRef<typeof OrbitControls> | null>;
-  layoutInsets: LayoutInsets;
-}) {
-  const camera = useThree((state) => state.camera);
-  const size = useThree((state) => state.size);
-
-  useLayoutEffect(() => {
-    if (!(camera instanceof THREE.PerspectiveCamera)) return;
-    if (size.width < 2 || size.height < 2) return;
-
-    const inset = layoutInsets;
-    camera.setViewOffset(
-      size.width,
-      size.height,
-      (inset.right - inset.left) / 2,
-      (inset.bottom - inset.top) / 2,
-      size.width,
-      size.height,
-    );
-    camera.aspect = size.width / size.height;
-    camera.fov = 38;
-    camera.updateProjectionMatrix();
-
-    const limits = {
-      minX: inset.left,
-      maxX: size.width - inset.right,
-      minY: inset.top,
-      maxY: size.height - inset.bottom,
-    };
-    const place = (distance: number) => {
-      camera.position.copy(HOME_DIRECTION).multiplyScalar(distance).add(LOOK_TARGET);
-      camera.up.set(0, 1, 0);
-      camera.lookAt(LOOK_TARGET);
-      camera.updateMatrixWorld();
-    };
-    const fits = (distance: number) => {
-      place(distance);
-      for (const point of APPLIANCE_POINTS) {
-        const projected = point.clone().project(camera);
-        const x = (projected.x * 0.5 + 0.5) * size.width;
-        const y = (1 - (projected.y * 0.5 + 0.5)) * size.height;
-        if (x < limits.minX || x > limits.maxX || y < limits.minY || y > limits.maxY) return false;
-      }
-      return true;
-    };
-
-    let near = 4;
-    let far = 80;
-    for (let step = 0; step < 22; step++) {
-      const mid = (near + far) / 2;
-      if (fits(mid)) far = mid;
-      else near = mid;
-    }
-
-    place(far * 1.04);
-    camera.updateProjectionMatrix();
-
-    const orbit = controls.current;
-    if (!orbit) return;
-    orbit.target.copy(LOOK_TARGET);
-    orbit.minDistance = 3.4;
-    orbit.maxDistance = Math.max(48, far * 1.7);
-    orbit.update();
-    orbit.saveState();
-  }, [camera, controls, layoutInsets, resetSignal, size.height, size.width]);
-
-  return null;
 }
 
 function strokeStyle(variant: SolarArc["id"] | "moon", emphasized: boolean) {

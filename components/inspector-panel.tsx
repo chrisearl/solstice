@@ -3,14 +3,8 @@
 import { ChevronDown, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ControlPanel } from "@/components/control-panel";
-import type { ChromeTone } from "@/lib/light";
 import type { Breakpoint, InspectorState } from "@/lib/layout-insets";
-import type {
-  AltitudeSample,
-  MoonModel,
-  MoonPlacement,
-  SolarModel,
-} from "@/lib/solar";
+import type { MoonModel, MoonPlacement, SolarModel } from "@/lib/solar";
 
 interface InspectorPanelProps {
   breakpoint: Breakpoint;
@@ -23,12 +17,10 @@ interface InspectorPanelProps {
   latText: string;
   lngText: string;
   minutes: number;
-  playing: boolean;
   dayIndex: number;
   dayCount: number;
   showSun: boolean;
   showMoon: boolean;
-  samples: AltitudeSample[];
   locating: boolean;
   geoError: string | null;
   onLatText: (value: string) => void;
@@ -38,12 +30,10 @@ interface InspectorPanelProps {
   onDayIndex: (value: number) => void;
   onDate: (iso: string) => void;
   onMinutes: (value: number) => void;
-  onPlaying: (value: boolean) => void;
   onShowSun: (value: boolean) => void;
   onShowMoon: (value: boolean) => void;
   onResetView: () => void;
   onResetPlace: () => void;
-  tone?: ChromeTone;
   onClose: () => void;
   onPeek: () => void;
   onOpen: () => void;
@@ -62,12 +52,10 @@ export function InspectorPanel(props: InspectorPanelProps) {
     latText: props.latText,
     lngText: props.lngText,
     minutes: props.minutes,
-    playing: props.playing,
     dayIndex: props.dayIndex,
     dayCount: props.dayCount,
     showSun: props.showSun,
     showMoon: props.showMoon,
-    samples: props.samples,
     locating: props.locating,
     geoError: props.geoError,
     onLatText: props.onLatText,
@@ -77,13 +65,11 @@ export function InspectorPanel(props: InspectorPanelProps) {
     onDayIndex: props.onDayIndex,
     onDate: props.onDate,
     onMinutes: props.onMinutes,
-    onPlaying: props.onPlaying,
     onShowSun: props.onShowSun,
     onShowMoon: props.onShowMoon,
     onResetView: props.onResetView,
     onResetPlace: props.onResetPlace,
     compactHeader: true as const,
-    tone: props.tone,
   };
 
   if (breakpoint === "mobile") {

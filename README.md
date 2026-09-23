@@ -26,8 +26,8 @@ pnpm build    # production build
 - **Date** — slider or calendar, plus jumps to the solstices and both equinoxes
 - **Time** — 24-hour slider colored by sunlight phase, a clock field, and play / pause (space bar). An altitude trace sits under the slider.
 - **Sun events** — dawn, sunrise, solar noon, sunset, and dusk seek the clock
-- **Shadow** — length in meters for an object of a chosen height. The gnomon shadow in the scene stays a visual.
-- **Link** — the address bar keeps place, date, mean solar time, and object height
+- **Shadow** — length of the shadow cast by a 1 m object. The gnomon shadow in the scene stays a visual.
+- **Link** — the address bar keeps place, date, and mean solar time
 - **Orbit** — drag to rotate, scroll to zoom, right-drag to pan
 
 Times on the clock and on the sun events are mean solar time for the chosen longitude, so 12:00 stays near the sun’s highest point. Civil time is the local clock for that place, shown beside mean solar time.

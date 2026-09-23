@@ -15,15 +15,17 @@ import {
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { formatCivilTime, timezoneAt } from "@/lib/civil-time";
-import { phaseChipStyle, type ChromeTone } from "@/lib/light";
 import {
   formatAzimuth,
   formatDegrees,
   formatLongDate,
   formatMeanTime,
   formatMinutes,
-  instantAtMinutes,
   locationLabel,
+} from "@/lib/format";
+import { phaseChipStyle, type ChromeTone } from "@/lib/light";
+import {
+  instantAtMinutes,
   seekMinute,
   type MoonModel,
   type MoonPlacement,

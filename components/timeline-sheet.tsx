@@ -6,36 +6,32 @@ import { AltitudeSparkline } from "@/components/altitude-sparkline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import { formatCivilTime } from "@/lib/civil-time";
-import { phaseLabelColor, type ChromeTone } from "@/lib/light";
+import { formatCivilTime, resolveTimeZone } from "@/lib/civil-time";
+import { formatMinutes, minutesToTimeValue, timeValueToMinutes } from "@/lib/format";
+import { phaseLabelColor, phaseTrackStyle, type ChromeTone } from "@/lib/light";
 import {
   dateFromDayIndex,
-  formatMinutes,
   instantAtMinutes,
-  minutesToTimeValue,
-  timeValueToMinutes,
   type AltitudeSample,
+  type SolarDayTimes,
   type SunPlacement,
 } from "@/lib/solar";
 import { TIMELINE_PEEK_HEIGHT } from "@/lib/layout-insets";
 import {
-  formatTimelineOffset,
+  clockFromInstant,
+  DAY_MINUTES,
+  isSameSolarDay,
   nextPlaybackSpeed,
-  resolveTimeZone,
-  TIMELINE_DURATION_MINUTES,
   type PlaybackSpeed,
-  type TimelineWindow,
-  timelinePhaseTrackStyle,
 } from "@/lib/timeline";
 
 export type TimelineSheetState = "peek" | "open";
 
 interface TimelineSheetProps {
-  window: TimelineWindow;
-  offset: number;
   playing: boolean;
   speed: PlaybackSpeed;
   samples: AltitudeSample[];
+  times: SolarDayTimes;
   sun: SunPlacement;
   showSun: boolean;
   showMoon: boolean;
@@ -45,7 +41,7 @@ interface TimelineSheetProps {
   dayIndex: number;
   minutes: number;
   tone?: ChromeTone;
-  onOffset: (value: number) => void;
+  onMinutes: (value: number) => void;
   onPlaying: (value: boolean) => void;
   onSpeed: (speed: PlaybackSpeed) => void;
 }
@@ -58,6 +54,7 @@ export function TimelineSheet(props: TimelineSheetProps) {
   const [state, setState] = useState<TimelineSheetState>("peek");
   const showNowMarker = useSyncExternalStore(subscribeNoop, () => true, () => false);
   const tone = props.tone ?? "night";
+  const parchment = tone === "parchment";
   const timeZone = useMemo(
     () => resolveTimeZone(props.latitude, props.longitude),
     [props.latitude, props.longitude],
@@ -74,33 +71,22 @@ export function TimelineSheet(props: TimelineSheetProps) {
     return formatCivilTime(instant, timeZone);
   }, [props.year, props.dayIndex, props.minutes, props.longitude, timeZone]);
   const trackStyle = useMemo(
-    () =>
-      timelinePhaseTrackStyle(
-        props.samples,
-        props.latitude,
-        props.longitude,
-        tone,
-        props.window.durationMinutes,
-      ),
-    [props.samples, props.latitude, props.longitude, tone, props.window.durationMinutes],
+    () => phaseTrackStyle(props.samples, props.times, props.longitude, tone, DAY_MINUTES),
+    [props.samples, props.times, props.longitude, tone],
   );
-  const timelineLabel = formatTimelineOffset(props.window.anchorMs, props.offset, timeZone);
   const meanLabel = formatMinutes(props.minutes);
-
-  const rangeLabels = useMemo(() => {
-    const start = formatTimelineOffset(props.window.anchorMs, 0, timeZone);
-    const mid = formatTimelineOffset(
-      props.window.anchorMs,
-      props.window.durationMinutes / 2,
-      timeZone,
-    );
-    const end = formatTimelineOffset(
-      props.window.anchorMs,
-      props.window.durationMinutes,
-      timeZone,
-    );
-    return { start, mid, end };
-  }, [props.window.anchorMs, props.window.durationMinutes, timeZone]);
+  const nowOffset = useMemo(() => {
+    if (!showNowMarker) return undefined;
+    const now = clockFromInstant(new Date(), props.longitude);
+    if (!isSameSolarDay(now, { year: props.year, dayIndex: props.dayIndex })) return undefined;
+    return now.minutes;
+  }, [showNowMarker, props.longitude, props.year, props.dayIndex]);
+  const rangeLabels = {
+    start: formatMinutes(0),
+    mid: formatMinutes(DAY_MINUTES / 2),
+    end: formatMinutes(0),
+  };
+  const minutes = Math.min(Math.max(props.minutes, 0), DAY_MINUTES);
 
   const maxHeight =
     state === "peek"
@@ -109,6 +95,7 @@ export function TimelineSheet(props: TimelineSheetProps) {
 
   return (
     <aside
+      data-chrome={parchment ? "parchment" : undefined}
       data-chrome-panel
       className="pointer-events-auto fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,30,0.96),rgba(8,10,16,0.94))] shadow-[0_-24px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl transition-[max-height] duration-300 ease-out motion-reduce:transition-none"
       style={{
@@ -128,8 +115,10 @@ export function TimelineSheet(props: TimelineSheetProps) {
           <span className="text-[10px] tracking-[0.16em] text-white/45 uppercase">Timeline</span>
         </button>
         <div className="hidden min-w-0 text-right sm:block">
-          <p className="truncate font-mono text-xs text-[#f0b429] tabular-nums">{timelineLabel}</p>
-          <p className="truncate text-[10px] text-white/40">{meanLabel} mean solar</p>
+          <p className="truncate font-mono text-xs text-[#f0b429] tabular-nums">{meanLabel}</p>
+          <p className="truncate text-[10px] text-white/40">
+            {civilTime ? `${civilTime} civil` : "mean solar"}
+          </p>
         </div>
         <Button
           type="button"
@@ -180,10 +169,10 @@ export function TimelineSheet(props: TimelineSheetProps) {
               {state === "open" && (
                 <Slider
                   min={0}
-                  max={props.window.durationMinutes}
+                  max={DAY_MINUTES}
                   step={0.5}
-                  value={[props.offset]}
-                  onValueChange={([value]) => props.onOffset(value)}
+                  value={[minutes]}
+                  onValueChange={([value]) => props.onMinutes(value)}
                   aria-label="Timeline"
                   hideRange
                   trackStyle={trackStyle}
@@ -191,12 +180,12 @@ export function TimelineSheet(props: TimelineSheetProps) {
               )}
               <AltitudeSparkline
                 samples={props.samples}
-                minutes={props.offset}
+                minutes={minutes}
                 showSun={props.showSun}
                 showMoon={props.showMoon}
                 tone={tone}
-                rangeMinutes={props.window.durationMinutes}
-                nowOffset={showNowMarker ? props.window.nowOffset : undefined}
+                rangeMinutes={DAY_MINUTES}
+                nowOffset={nowOffset}
               />
               {state === "open" && (
                 <div className="flex justify-between px-0.5 font-mono text-[10px] tracking-wide text-white/35">
@@ -225,20 +214,7 @@ export function TimelineSheet(props: TimelineSheetProps) {
                 value={minutesToTimeValue(props.minutes)}
                 onChange={(event) => {
                   const next = timeValueToMinutes(event.target.value);
-                  if (next !== null) {
-                    const date = dateFromDayIndex(props.year, props.dayIndex);
-                    const instant = instantAtMinutes(
-                      date.getUTCFullYear(),
-                      date.getUTCMonth(),
-                      date.getUTCDate(),
-                      next,
-                      props.longitude,
-                    );
-                    const offset = (instant.getTime() - props.window.anchorMs) / 60_000;
-                    if (offset >= 0 && offset <= TIMELINE_DURATION_MINUTES) {
-                      props.onOffset(offset);
-                    }
-                  }
+                  if (next !== null) props.onMinutes(next);
                 }}
                 className="h-8 w-[7.5rem] border-white/10 bg-white/5 font-mono text-white scheme-dark"
                 aria-label="Clock time"
