@@ -645,8 +645,16 @@ function Legend({
             <li key={arc.id} className="flex items-center justify-between gap-3 text-sm">
               <span className="flex items-center gap-2 text-white/80">
                 <span
-                  className="h-[3px] w-6 rounded-full"
-                  style={{ background: arc.color, boxShadow: `0 0 8px ${arc.color}` }}
+                  className={
+                    arc.emphasized
+                      ? "h-[3px] w-6 rounded-full"
+                      : "h-px w-6 border-t border-dashed"
+                  }
+                  style={
+                    arc.emphasized
+                      ? { background: arc.color, boxShadow: `0 0 8px ${arc.color}` }
+                      : { borderColor: arc.color, opacity: 0.7 }
+                  }
                 />
                 {arc.label}
               </span>

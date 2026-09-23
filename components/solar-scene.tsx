@@ -448,32 +448,56 @@ function Gnomon() {
 }
 
 function SkyArc({ arc }: { arc: SkyPath }) {
+  if (!arc.emphasized) return <QuietSkyArc arc={arc} />;
+  return <SolidSkyArc arc={arc} />;
+}
+
+/** Reference paths sit behind the day being shown: thin, dim, and broken. */
+function QuietSkyArc({ arc }: { arc: SkyPath }) {
+  const aboveRuns = useMemo(() => splitPathRuns(arc.points), [arc.points]);
+  const underRuns = useMemo(() => splitPathRuns(arc.underPoints), [arc.underPoints]);
+
+  return (
+    <group>
+      <DashedRuns
+        runs={underRuns}
+        closed={arc.underClosed}
+        color={arc.color}
+        lineWidth={1}
+        opacity={0.2}
+        dashSize={0.16}
+        gapSize={0.18}
+        renderOrder={1}
+      />
+      <DashedRuns
+        runs={aboveRuns}
+        closed={arc.closed}
+        color={arc.color}
+        lineWidth={1.25}
+        opacity={0.38}
+        dashSize={0.28}
+        gapSize={0.22}
+        renderOrder={3}
+      />
+      <ArcLabel arc={arc} />
+    </group>
+  );
+}
+
+function SolidSkyArc({ arc }: { arc: SkyPath }) {
   const aboveRuns = useMemo(() => splitPathRuns(arc.points), [arc.points]);
   const underRuns = useMemo(() => splitPathRuns(arc.underPoints), [arc.underPoints]);
   const aboveTubes = useMemo(
-    () =>
-      tubesFromRuns(
-        aboveRuns,
-        arc.emphasized ? 0.028 : 0.015,
-        arc.closed && aboveRuns.length === 1,
-      ),
-    [aboveRuns, arc.emphasized, arc.closed],
+    () => tubesFromRuns(aboveRuns, 0.028, arc.closed && aboveRuns.length === 1),
+    [aboveRuns, arc.closed],
   );
   const glowTubes = useMemo(
-    () =>
-      arc.emphasized
-        ? tubesFromRuns(aboveRuns, 0.07, arc.closed && aboveRuns.length === 1)
-        : [],
-    [aboveRuns, arc.emphasized, arc.closed],
+    () => tubesFromRuns(aboveRuns, 0.07, arc.closed && aboveRuns.length === 1),
+    [aboveRuns, arc.closed],
   );
   const underTubes = useMemo(
-    () =>
-      tubesFromRuns(
-        underRuns,
-        arc.emphasized ? 0.011 : 0.006,
-        arc.underClosed && underRuns.length === 1,
-      ),
-    [underRuns, arc.emphasized, arc.underClosed],
+    () => tubesFromRuns(underRuns, 0.011, arc.underClosed && underRuns.length === 1),
+    [underRuns, arc.underClosed],
   );
 
   useEffect(() => {
@@ -493,7 +517,7 @@ function SkyArc({ arc }: { arc: SkyPath }) {
           <meshBasicMaterial
             color={arc.color}
             transparent
-            opacity={arc.emphasized ? 0.28 : 0.16}
+            opacity={0.28}
             toneMapped={false}
             depthWrite={false}
           />
@@ -515,37 +539,97 @@ function SkyArc({ arc }: { arc: SkyPath }) {
           <meshBasicMaterial
             color={arc.color}
             transparent
-            opacity={arc.emphasized ? 1 : 0.78}
+            opacity={1}
             toneMapped={false}
             depthWrite={false}
           />
         </mesh>
       ))}
-      {arc.apex && (
-        <Html
-          position={[arc.apex.x, arc.apex.y + 0.32, arc.apex.z]}
-          center
-          distanceFactor={11}
-          zIndexRange={[20, 0]}
-          style={{ pointerEvents: "none" }}
-        >
-          <div
-            style={{
-              whiteSpace: "nowrap",
-              textAlign: "center",
-              fontFamily: "var(--font-geist-sans), ui-sans-serif, sans-serif",
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              color: arc.color,
-              textShadow: "0 2px 10px rgba(0,0,0,0.85)",
-            }}
-          >
-            <div style={{ fontSize: 11, fontWeight: 600 }}>{arc.label}</div>
-            <div style={{ marginTop: 2, fontSize: 10, opacity: 0.75 }}>{arc.detail}</div>
-          </div>
-        </Html>
-      )}
+      <ArcLabel arc={arc} />
     </group>
+  );
+}
+
+function DashedRuns({
+  runs,
+  closed,
+  color,
+  lineWidth,
+  opacity,
+  dashSize,
+  gapSize,
+  renderOrder,
+}: {
+  runs: Vec3[][];
+  closed: boolean;
+  color: string;
+  lineWidth: number;
+  opacity: number;
+  dashSize: number;
+  gapSize: number;
+  renderOrder: number;
+}) {
+  return runs.map((points, index) => {
+    const line = linePoints(points, closed && runs.length === 1);
+    if (line.length < 2) return null;
+    return (
+      <Line
+        key={index}
+        points={line}
+        color={color}
+        lineWidth={lineWidth}
+        dashed
+        dashSize={dashSize}
+        gapSize={gapSize}
+        transparent
+        opacity={opacity}
+        depthWrite={false}
+        toneMapped={false}
+        renderOrder={renderOrder}
+      />
+    );
+  });
+}
+
+function linePoints(points: Vec3[], closed: boolean): [number, number, number][] {
+  const mapped = points.map((point) => [point.x, point.y, point.z] as [number, number, number]);
+  if (closed && mapped.length > 2) {
+    const first = mapped[0];
+    const last = mapped[mapped.length - 1];
+    if (first[0] !== last[0] || first[1] !== last[1] || first[2] !== last[2]) {
+      mapped.push(first);
+    }
+  }
+  return mapped;
+}
+
+function ArcLabel({ arc }: { arc: SkyPath }) {
+  if (!arc.apex) return null;
+  const quiet = !arc.emphasized;
+  return (
+    <Html
+      position={[arc.apex.x, arc.apex.y + 0.32, arc.apex.z]}
+      center
+      distanceFactor={11}
+      zIndexRange={[20, 0]}
+      style={{ pointerEvents: "none" }}
+    >
+      <div
+        style={{
+          whiteSpace: "nowrap",
+          textAlign: "center",
+          fontFamily: "var(--font-geist-sans), ui-sans-serif, sans-serif",
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: arc.color,
+          opacity: quiet ? 0.48 : 1,
+          textShadow: quiet ? "0 1px 6px rgba(0,0,0,0.7)" : "0 2px 10px rgba(0,0,0,0.85)",
+        }}
+      >
+        <div style={{ fontSize: quiet ? 10 : 11, fontWeight: quiet ? 500 : 600 }}>{arc.label}</div>
+        <div style={{ marginTop: 2, fontSize: 10, opacity: 0.75 }}>{arc.detail}</div>
+      </div>
+    </Html>
   );
 }
 
