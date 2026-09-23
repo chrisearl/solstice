@@ -2,14 +2,17 @@
 
 import { Html, Line } from "@react-three/drei";
 import { useMemo } from "react";
-import { bodyById, maxOrrerySceneRadius, type OrreryModel } from "@/lib/orrery";
+import { ZODIAC_SIGNS, signCenterLongitude } from "@/lib/astrology";
+import { formatChartTag, formatDeltaJ2000, formatJulianDate } from "@/lib/format";
 import {
-  formatDeltaJ2000,
-  formatHeliocentricLongitude,
-  formatJulianDate,
-} from "@/lib/format";
+  chartById,
+  focusChart,
+  maxOrrerySceneRadius,
+  type BodyPlacement,
+  type OrreryModel,
+} from "@/lib/orrery";
 
-const ECLIPTIC_TICK_LONGITUDES = [0, 90, 180, 270] as const;
+const SIGN_CUSPS = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330] as const;
 
 export type OrreryMarkingsTheme = "night" | "davinci";
 
@@ -41,18 +44,18 @@ export function OrreryMarkings({ model, theme }: OrreryMarkingsProps) {
   }, [ringRadius]);
 
   const tickSegments = useMemo(() => {
-    const inner = ringRadius * 0.97;
-    const outer = ringRadius * 1.03;
     const pairs: [number, number, number][] = [];
-    for (const longitude of ECLIPTIC_TICK_LONGITUDES) {
-      const a = eclipticPoint(longitude, inner);
-      const b = eclipticPoint(longitude, outer);
-      pairs.push(a, b);
+    for (const longitude of SIGN_CUSPS) {
+      const cardinal = longitude % 90 === 0;
+      const inner = ringRadius * (cardinal ? 0.955 : 0.982);
+      const outer = ringRadius * (cardinal ? 1.05 : 1.022);
+      pairs.push(eclipticPoint(longitude, inner), eclipticPoint(longitude, outer));
     }
     return pairs;
   }, [ringRadius]);
 
-  const earth = bodyById(model, "earth");
+  const sunChart = chartById(model, "sun");
+  const focusChart = model.focusId === "earth" ? null : chartById(model, model.focusId);
   const plaquePosition = eclipticPoint(270, ringRadius * 0.88);
   plaquePosition[1] = -0.15;
 
@@ -76,11 +79,11 @@ export function OrreryMarkings({ model, theme }: OrreryMarkingsProps) {
         opacity={tickOpacity}
         lineWidth={isNight ? 1.2 : 1.4}
       />
-      {ECLIPTIC_TICK_LONGITUDES.map((longitude) => {
-        const labelPos = eclipticPoint(longitude, ringRadius * 1.08);
+      {ZODIAC_SIGNS.map((sign, index) => {
+        const labelPos = eclipticPoint(signCenterLongitude(index), ringRadius * 1.1);
         return (
           <Html
-            key={longitude}
+            key={sign.id}
             position={labelPos}
             center
             distanceFactor={22}
@@ -90,15 +93,28 @@ export function OrreryMarkings({ model, theme }: OrreryMarkingsProps) {
             <span
               className={
                 isNight
-                  ? "text-[9px] tracking-[0.08em] text-white/45"
-                  : "text-[9px] tracking-[0.08em] text-[#3a2310]/55"
+                  ? "text-[13px] leading-none text-white/55"
+                  : "text-[13px] leading-none text-[#3a2310]/70"
               }
+              title={sign.name}
             >
-              {longitude}°
+              {sign.glyph}
             </span>
           </Html>
         );
       })}
+      {sunChart && (
+        <mesh position={eclipticPoint(sunChart.zodiac.longitudeDeg, ringRadius)}>
+          <sphereGeometry args={[0.075, 16, 16]} />
+          <meshBasicMaterial color={isNight ? "#f0b429" : "#8a5a22"} />
+        </mesh>
+      )}
+      {focusChart && (
+        <mesh position={eclipticPoint(focusChart.zodiac.longitudeDeg, ringRadius * 0.985)}>
+          <sphereGeometry args={[0.055, 12, 12]} />
+          <meshBasicMaterial color={isNight ? "#d7e4f5" : "#3a2412"} />
+        </mesh>
+      )}
       <Html
         position={epochPosition}
         center
@@ -134,13 +150,49 @@ export function OrreryMarkings({ model, theme }: OrreryMarkingsProps) {
           <div className={isNight ? "text-white/70" : "text-[#3a2310]/75"}>
             {formatDeltaJ2000(model.instant)}
           </div>
-          {earth && (
-            <div className={isNight ? "text-white/60" : "text-[#3a2310]/65"}>
-              {formatHeliocentricLongitude(earth.heliocentricLongitudeDeg)}
+          {sunChart && (
+            <div className={isNight ? "text-white/70" : "text-[#3a2310]/75"}>
+              Sun {formatChartTag(sunChart)} {sunChart.zodiac.sign.name}
             </div>
           )}
         </div>
       </Html>
     </group>
+  );
+}
+
+export function OrreryFocusLabel({
+  body,
+  model,
+  theme,
+}: {
+  body: BodyPlacement;
+  model: OrreryModel;
+  theme: OrreryMarkingsTheme;
+}) {
+  const chart = focusChart(model, body.id);
+  const earth = body.id === "earth";
+  const detail = chart ? (earth ? `Sun ${formatChartTag(chart)}` : formatChartTag(chart)) : null;
+  const isNight = theme === "night";
+
+  return (
+    <Html
+      position={[body.position.x, body.position.y + 0.5, body.position.z]}
+      center
+      distanceFactor={14}
+      zIndexRange={[12, 0]}
+      style={{ pointerEvents: "none" }}
+    >
+      <span
+        className={
+          isNight
+            ? "block rounded-full border border-white/20 bg-black/60 px-2 py-0.5 text-center text-[10px] tracking-[0.14em] text-white uppercase backdrop-blur-sm"
+            : "block rounded-full border border-[#9b764b]/60 bg-[#f4e8d1]/90 px-2 py-0.5 text-center text-[10px] tracking-[0.14em] text-[#3a2310] uppercase"
+        }
+      >
+        <span className="block">{body.name}</span>
+        {detail && <span className="mt-0.5 block font-normal normal-case tracking-normal">{detail}</span>}
+      </span>
+    </Html>
   );
 }

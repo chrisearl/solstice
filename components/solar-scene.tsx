@@ -12,12 +12,14 @@ import {
   useRef,
 } from "react";
 import * as THREE from "three";
+import { HorizonChart } from "@/components/horizon-chart";
 import { watchContextLoss } from "@/components/scene-boundary";
 import { readLiveBodies, useSolarMotion } from "@/components/solar-motion";
 import { FrameCamera } from "@/components/frame-camera";
 import { createAppliancePoints } from "@/lib/scene-framing";
 import { createCompassTexture } from "@/lib/compass-texture";
 import type { LayoutInsets } from "@/lib/layout-insets";
+import type { OrreryModel } from "@/lib/orrery";
 import {
   ARC_HIERARCHY,
   DISC_FILL_COLOR,
@@ -46,6 +48,8 @@ interface SolarSceneProps {
   moonArc: SkyPath;
   showSun: boolean;
   showMoon: boolean;
+  orreryModel: OrreryModel;
+  latitude: number;
   resetSignal: number;
   layoutInsets: LayoutInsets;
   active?: boolean;
@@ -60,6 +64,8 @@ export default function SolarScene({
   moonArc,
   showSun,
   showMoon,
+  orreryModel,
+  latitude,
   resetSignal,
   layoutInsets,
   active = true,
@@ -85,6 +91,8 @@ export default function SolarScene({
           moonArc={moonArc}
           showSun={showSun}
           showMoon={showMoon}
+          orreryModel={orreryModel}
+          latitude={latitude}
           resetSignal={resetSignal}
           layoutInsets={layoutInsets}
         />
@@ -101,6 +109,8 @@ function SceneContent({
   moonArc,
   showSun,
   showMoon,
+  orreryModel,
+  latitude,
   resetSignal,
   layoutInsets,
 }: SolarSceneProps) {
@@ -142,6 +152,15 @@ function SceneContent({
           />
         )}
         <CompassDisc />
+        <HorizonChart
+          model={orreryModel}
+          latitude={latitude}
+          sun={sun}
+          moon={moon}
+          showSun={showSun}
+          showMoon={showMoon}
+          theme="night"
+        />
         {showSun && <HorizonMarks horizon={horizon} />}
         <Gnomon />
         {showSun &&

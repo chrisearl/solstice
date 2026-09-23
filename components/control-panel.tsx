@@ -16,8 +16,10 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import {
   coordinateStatus,
+  formatAspectOrb,
   formatAu,
   formatAzimuth,
+  formatChartReading,
   formatDegrees,
   formatDuration,
   formatEarthSeason,
@@ -25,12 +27,17 @@ import {
   formatMeanTime,
   formatOrbitalPhase,
   formatShadow,
+  formatSignDegree,
+  formatZodiacNature,
   isoFromDate,
   locationLabel,
 } from "@/lib/format";
 import {
   ALL_PLANET_IDS,
+  aspectsFor,
   bodyById,
+  chartById,
+  focusChart,
   PLANET_NAMES,
   type OrreryModel,
   type PlanetId,
@@ -244,6 +251,8 @@ export function ControlPanel(props: ControlPanelProps) {
         <LightingPhases times={props.model.times} longitude={props.longitude} />
       )}
 
+      <ChartSummary model={props.orreryModel} />
+
       <Legend
         arcs={props.model.arcs}
         note={props.model.note}
@@ -382,9 +391,104 @@ function OrreryControlPanel(props: ControlPanelProps) {
             <span className="text-white/45">Season </span>
             {formatEarthSeason(props.orreryModel.earthSeason)}
           </p>
+          <FocusChartLines model={props.orreryModel} focusId={props.focusPlanet} />
         </div>
       )}
     </section>
+  );
+}
+
+function ChartSummary({ model }: { model: OrreryModel }) {
+  const sun = chartById(model, "sun");
+  const moon = chartById(model, "moon");
+  const houses = model.houses;
+  if (!sun && !moon && !houses) return null;
+  return (
+    <div className="space-y-1.5 border-t border-white/10 pt-3 text-sm text-white/70">
+      <p className="text-[10px] tracking-[0.16em] text-white/40 uppercase">Tropical chart</p>
+      {sun && (
+        <p>
+          <span className="text-white/45">Sun </span>
+          {formatChartReading(sun)}
+        </p>
+      )}
+      {moon && (
+        <p>
+          <span className="text-white/45">Moon </span>
+          {formatChartReading(moon)}
+        </p>
+      )}
+      {houses && (
+        <>
+          <p>
+            <span className="text-white/45">Ascendant </span>
+            {houses.ascendant.sign.glyph} {formatSignDegree(houses.ascendant)} {houses.ascendant.sign.name}
+          </p>
+          <p>
+            <span className="text-white/45">Midheaven </span>
+            {houses.midheaven.sign.glyph} {formatSignDegree(houses.midheaven)} {houses.midheaven.sign.name}
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+function FocusChartLines({ model, focusId }: { model: OrreryModel; focusId: PlanetId | "moon" }) {
+  const chart = focusChart(model, focusId);
+  const aspects = aspectsFor(model, focusId).slice(0, 3);
+  const houses = model.houses;
+  if (!chart) return null;
+  return (
+    <>
+      <p>
+        <span className="text-white/45">{focusId === "earth" ? "Sun sign " : "Sign "}</span>
+        {formatChartReading(chart)}
+      </p>
+      <p>
+        <span className="text-white/45">Nature </span>
+        {formatZodiacNature(chart.zodiac.sign)}
+      </p>
+      <p>
+        <span className="text-white/45">Motion </span>
+        {chart.retrograde ? "Retrograde" : "Direct"}
+      </p>
+      {aspects.map((aspect) => (
+        <p key={`${aspect.fromId}-${aspect.toId}`}>
+          <span className="text-white/45">
+            {aspect.fromName} · {aspect.toName}{" "}
+          </span>
+          {formatAspectOrb(aspect)}
+        </p>
+      ))}
+      {houses && (
+        <p>
+          <span className="text-white/45">Ascendant </span>
+          {houses.ascendant.sign.glyph} {formatSignDegree(houses.ascendant)} {houses.ascendant.sign.name}
+        </p>
+      )}
+    </>
+  );
+}
+
+function FocusChartStats({ model, focusId }: { model: OrreryModel; focusId: PlanetId | "moon" }) {
+  const chart = focusChart(model, focusId);
+  if (!chart) return null;
+  return (
+    <>
+      <Stat
+        icon={<Sparkles />}
+        label={focusId === "earth" ? "Sun sign" : "Sign"}
+        value={formatChartReading(chart)}
+        hint={formatZodiacNature(chart.zodiac.sign)}
+      />
+      <Stat
+        icon={<Sparkles />}
+        label="Motion"
+        value={chart.retrograde ? "Retrograde" : "Direct"}
+        hint="Geocentric tropical longitude"
+      />
+    </>
   );
 }
 
@@ -442,6 +546,7 @@ export function StatRail({
           value={formatEarthSeason(orreryModel.earthSeason)}
           hint="Northern hemisphere"
         />
+        <FocusChartStats model={orreryModel} focusId={focusPlanet} />
       </aside>
     );
   }

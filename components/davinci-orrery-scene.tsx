@@ -1,6 +1,6 @@
 "use client";
 
-import { Html, Line, OrbitControls } from "@react-three/drei";
+import { Line, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   type ComponentRef,
@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 import * as THREE from "three";
-import { OrreryMarkings } from "@/components/orrery-markings";
+import { OrreryFocusLabel, OrreryMarkings } from "@/components/orrery-markings";
 import { InkPlanetBody } from "@/components/orrery-planets";
 import { watchContextLoss } from "@/components/scene-boundary";
 import { readLiveOrrery, useSolarMotion } from "@/components/solar-motion";
@@ -100,17 +100,7 @@ function InkOrreryInstrument({
             onFocus={onFocus}
           />
         ))}
-      {focusBody && (
-        <Html
-          position={[focusBody.position.x, focusBody.position.y + 0.5, focusBody.position.z]}
-          center
-          distanceFactor={14}
-        >
-          <span className="rounded-full border border-[#9b764b]/60 bg-[#f4e8d1]/90 px-2 py-0.5 text-[10px] tracking-[0.14em] text-[#3a2310] uppercase">
-            {focusBody.name}
-          </span>
-        </Html>
-      )}
+      {focusBody && <OrreryFocusLabel body={focusBody} model={liveModel} theme="davinci" />}
       <OrbitControls
         ref={controls}
         enableDamping

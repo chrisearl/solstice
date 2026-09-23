@@ -22,8 +22,10 @@ import { Slider } from "@/components/ui/slider";
 import { formatCivilClock, formatCivilTime, resolveTimeZone } from "@/lib/civil-time";
 import { formatUtcTime } from "@/lib/format";
 import {
+  formatAspectOrb,
   formatAu,
   formatAzimuth,
+  formatChartReading,
   formatDayOfYear,
   formatDegrees,
   formatEarthSeason,
@@ -31,11 +33,13 @@ import {
   formatMeanTime,
   formatMinutes,
   formatOrbitalPhase,
+  formatSignDegree,
+  formatZodiacNature,
   locationLabel,
   minutesToTimeValue,
   timeValueToMinutes,
 } from "@/lib/format";
-import { bodyById, type OrreryModel, type PlanetId } from "@/lib/orrery";
+import { aspectsFor, bodyById, chartById, focusChart, type OrreryModel, type PlanetId } from "@/lib/orrery";
 import { phaseChipStyle, phaseLabelColor, phaseTrackStyle, type ChromeTone } from "@/lib/light";
 import {
   STUDIO_SHEET_CLOSED_HEIGHT,
@@ -139,6 +143,7 @@ export function StudioSheet(props: StudioSheetProps) {
       data-chrome-panel
       className="pointer-events-auto fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,30,0.96),rgba(8,10,16,0.94))] shadow-[0_-24px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl transition-[max-height] duration-300 ease-out motion-reduce:transition-none"
       style={{
+        height: maxHeight,
         maxHeight,
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
@@ -157,14 +162,14 @@ export function StudioSheet(props: StudioSheetProps) {
             onScroll={onScroll}
             className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            <div className="w-full shrink-0 snap-start px-3 pb-2 md:px-4">
+            <div className="h-full min-h-0 w-full shrink-0 snap-start overflow-y-auto px-3 pb-2 md:px-4">
               {props.studioModel === "orrery" ? (
                 <OrreryTimelinePage {...props} tone={tone} />
               ) : (
                 <AstrolabeTimelinePage {...props} tone={tone} />
               )}
             </div>
-            <div className="w-full shrink-0 snap-start px-3 pb-2 md:px-4">
+            <div className="h-full min-h-0 w-full shrink-0 snap-start overflow-y-auto px-3 pb-2 md:px-4">
               {props.studioModel === "orrery" ? (
                 <OrreryReadingsPage {...props} tone={tone} />
               ) : (
@@ -233,8 +238,12 @@ function StatusBar(
     props.model.date,
   ]);
 
+  const focusSign = isOrrery ? focusChart(props.orreryModel, props.focusPlanet) : null;
+  const ascendant = props.orreryModel.houses?.ascendant ?? null;
   const badge = isOrrery
-    ? bodyById(props.orreryModel, props.focusPlanet)?.name
+    ? focusSign
+      ? `${props.focusPlanet === "earth" ? "Sun" : focusSign.name} ${focusSign.zodiac.sign.glyph}${focusSign.retrograde ? " Rx" : ""}`
+      : bodyById(props.orreryModel, props.focusPlanet)?.name
     : props.showSun
       ? props.sun.lightingPhase.label
       : props.showMoon
@@ -259,11 +268,14 @@ function StatusBar(
         <Clock className="size-3.5 shrink-0 text-[#f0b429]" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-mono text-sm text-[#f7f3ea] tabular-nums">{timeLabel}</p>
-          <p className="truncate text-[10px] text-white/45">{secondary}</p>
+          <p className="truncate text-[10px] text-white/45">
+            {secondary}
+            {!isOrrery && ascendant ? ` · Asc ${ascendant.sign.glyph}` : ""}
+          </p>
         </div>
         {badge && (
           <span
-            className="hidden max-w-[7rem] truncate rounded-full border border-white/10 px-2 py-0.5 text-[10px] tracking-[0.12em] uppercase sm:inline"
+            className="hidden max-w-[9rem] truncate rounded-full border border-white/10 px-2 py-0.5 text-[10px] tracking-[0.12em] uppercase sm:inline"
             style={badgeStyle}
           >
             {badge}
@@ -590,6 +602,7 @@ function AstrolabeReadingsPage(
               onClick={clickSeek(seek(props.model.times.sunset), props.onMinutes)}
             />
           </div>
+          <ChartReadingRows model={props.orreryModel} bodyId="sun" />
         </CollapsibleSection>
       )}
 
@@ -605,8 +618,11 @@ function AstrolabeReadingsPage(
           <p className="mt-1 text-[11px] text-white/55">
             {props.moon.phaseLabel} · {Math.round(props.moon.fraction * 100)}% lit
           </p>
+          <ChartReadingRows model={props.orreryModel} bodyId="moon" />
         </CollapsibleSection>
       )}
+
+      <LocalSky model={props.orreryModel} />
 
       <button
         type="button"
@@ -638,8 +654,12 @@ function OrreryReadingsPage(props: StudioSheetProps & { tone: ChromeTone }) {
           <MetricRow icon={<SunMedium className="size-3.5" />} label="Distance" value={formatAu(focusBody.distanceAu)} />
           <MetricRow icon={<SunMedium className="size-3.5" />} label="Orbit" value={formatOrbitalPhase(focusBody.orbitalPhase)} />
           <MetricRow icon={<SunMedium className="size-3.5" />} label="Season" value={formatEarthSeason(props.orreryModel.earthSeason)} />
+          <ChartReadingRows model={props.orreryModel} bodyId={props.focusPlanet} />
         </div>
       </CollapsibleSection>
+
+      <AspectList model={props.orreryModel} bodyId={props.focusPlanet} />
+      <LocalSky model={props.orreryModel} />
 
       {props.focusPlanet === "moon" && props.showMoon && (
         <CollapsibleSection title="Moon phase">
@@ -649,6 +669,63 @@ function OrreryReadingsPage(props: StudioSheetProps & { tone: ChromeTone }) {
         </CollapsibleSection>
       )}
     </section>
+  );
+}
+
+function ChartReadingRows({ model, bodyId }: { model: OrreryModel; bodyId: PlanetId | "moon" | "sun" }) {
+  const chart = bodyId === "earth" ? chartById(model, "sun") : focusChart(model, bodyId);
+  if (!chart) return null;
+  const label = bodyId === "earth" ? "Sun sign" : "Sign";
+  return (
+    <>
+      <MetricRow icon={<SunMedium className="size-3.5" />} label={label} value={formatChartReading(chart)} />
+      <MetricRow
+        icon={<Compass className="size-3.5" />}
+        label="Nature"
+        value={formatZodiacNature(chart.zodiac.sign)}
+      />
+      <MetricRow
+        icon={<Moon className="size-3.5" />}
+        label="Motion"
+        value={chart.retrograde ? "Retrograde" : "Direct"}
+      />
+    </>
+  );
+}
+
+function AspectList({ model, bodyId }: { model: OrreryModel; bodyId: PlanetId | "moon" }) {
+  const aspects = aspectsFor(model, bodyId).slice(0, 3);
+  if (aspects.length === 0) return null;
+  return (
+    <CollapsibleSection title={bodyId === "earth" ? "Solar aspects" : "Aspects"} defaultOpen>
+      {aspects.map((aspect) => (
+        <MetricRow
+          key={`${aspect.fromId}-${aspect.toId}`}
+          icon={<span className="text-[11px]">{aspect.glyph}</span>}
+          label={`${aspect.fromName} · ${aspect.toName}`}
+          value={formatAspectOrb(aspect)}
+        />
+      ))}
+    </CollapsibleSection>
+  );
+}
+
+function LocalSky({ model }: { model: OrreryModel }) {
+  const houses = model.houses;
+  if (!houses) return null;
+  return (
+    <CollapsibleSection title="Local sky" defaultOpen>
+      <MetricRow
+        icon={<Compass className="size-3.5" />}
+        label="Ascendant"
+        value={`${houses.ascendant.sign.glyph} ${formatSignDegree(houses.ascendant)} ${houses.ascendant.sign.name}`}
+      />
+      <MetricRow
+        icon={<Compass className="size-3.5" />}
+        label="Midheaven"
+        value={`${houses.midheaven.sign.glyph} ${formatSignDegree(houses.midheaven)} ${houses.midheaven.sign.name}`}
+      />
+    </CollapsibleSection>
   );
 }
 

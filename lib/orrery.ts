@@ -1,3 +1,11 @@
+import {
+  ascendantLongitudeDeg,
+  isRetrogradeMotion,
+  matchAspect,
+  midheavenLongitudeDeg,
+  zodiacAt,
+  type ZodiacPlacement,
+} from "./astrology.ts";
 import { dateFromDayIndex } from "./solar.ts";
 import type { Vec3 } from "./solar.ts";
 import { solarClockInstant, type SolarClock } from "./timeline.ts";
@@ -16,6 +24,41 @@ export type BodyId = PlanetId | "moon" | "sun";
 
 export type EarthSeason = "spring" | "summer" | "autumn" | "winter";
 
+/** Geocentric tropical placement. Earth is the observer, so it has no chart entry. */
+export type ChartBodyId =
+  | "sun"
+  | "moon"
+  | "mercury"
+  | "venus"
+  | "mars"
+  | "jupiter"
+  | "saturn"
+  | "uranus"
+  | "neptune";
+
+export interface BodyChart {
+  id: ChartBodyId;
+  name: string;
+  zodiac: ZodiacPlacement;
+  retrograde: boolean;
+}
+
+export interface ChartAspect {
+  fromId: ChartBodyId;
+  toId: ChartBodyId;
+  fromName: string;
+  toName: string;
+  kind: string;
+  glyph: string;
+  separationDeg: number;
+  orbDeg: number;
+}
+
+export interface HouseAngles {
+  ascendant: ZodiacPlacement;
+  midheaven: ZodiacPlacement;
+}
+
 export interface BodyPlacement {
   id: BodyId;
   name: string;
@@ -26,11 +69,16 @@ export interface BodyPlacement {
   orbitalPhase: number;
   color: string;
   displayRadius: number;
+  /** Tropical geocentric chart. Null for Earth. */
+  chart: BodyChart | null;
 }
 
 export interface OrreryModel {
   instant: Date;
   bodies: BodyPlacement[];
+  charts: BodyChart[];
+  aspects: ChartAspect[];
+  houses: HouseAngles | null;
   earthSeason: EarthSeason;
   focusId: PlanetId | "moon";
 }
@@ -191,6 +239,18 @@ const PLANETS: OrbitalElement[] = [
   },
 ];
 
+const CHART_ORDER: readonly ChartBodyId[] = [
+  "sun",
+  "moon",
+  "mercury",
+  "venus",
+  "mars",
+  "jupiter",
+  "saturn",
+  "uranus",
+  "neptune",
+];
+
 const MOON_ORBIT_AU = 0.00257;
 const MOON_PERIOD_DAYS = 27.321661;
 const MOON_INCLINATION = 5.145 * DEG;
@@ -280,6 +340,24 @@ function addVec3(a: Vec3, b: Vec3): Vec3 {
   return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z };
 }
 
+function subVec3(a: Vec3, b: Vec3): Vec3 {
+  return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
+}
+
+const ORIGIN: Vec3 = { x: 0, y: 0, z: 0 };
+
+function planetPositions(days: number): Map<PlanetId, Vec3> {
+  const positions = new Map<PlanetId, Vec3>();
+  for (const element of PLANETS) {
+    positions.set(element.id, heliocentricEcliptic(element, days));
+  }
+  return positions;
+}
+
+function geocentricLongitude(bodyAu: Vec3, earthAu: Vec3): number {
+  return heliocentricLongitudeDeg(subVec3(bodyAu, earthAu));
+}
+
 function orbitalPhaseFromLongitude(longitudeDeg: number, element: OrbitalElement): number {
   const L = normalizeDegrees(longitudeDeg);
   const perihelion = normalizeDegrees(element.omega + element.Omega);
@@ -304,6 +382,7 @@ export function daysSinceJ2000(instant: Date): number {
 export function buildOrreryModel(input: {
   clock: SolarClock;
   longitude: number;
+  latitude?: number;
   focusId?: PlanetId | "moon";
   visiblePlanets?: ReadonlySet<PlanetId>;
 }): OrreryModel {
@@ -312,13 +391,63 @@ export function buildOrreryModel(input: {
   const focusId = input.focusId ?? "earth";
   const visible = input.visiblePlanets ?? new Set(ALL_PLANET_IDS);
 
-  const heliocentric = new Map<PlanetId, Vec3>();
-  for (const element of PLANETS) {
-    heliocentric.set(element.id, heliocentricEcliptic(element, days));
-  }
+  const heliocentric = planetPositions(days);
+  const previous = planetPositions(days - 1);
 
   const earthAu = heliocentric.get("earth")!;
+  const earthPrev = previous.get("earth")!;
   const moonAu = addVec3(earthAu, moonGeocentric(days));
+  const charts = new Map<ChartBodyId, BodyChart>();
+
+  charts.set("sun", {
+    id: "sun",
+    name: "Sun",
+    zodiac: zodiacAt(geocentricLongitude(ORIGIN, earthAu)),
+    retrograde: false,
+  });
+
+  for (const element of PLANETS) {
+    if (element.id === "earth") continue;
+    const id = element.id;
+    const lonNow = geocentricLongitude(heliocentric.get(id)!, earthAu);
+    const lonPrev = geocentricLongitude(previous.get(id)!, earthPrev);
+    charts.set(id, {
+      id,
+      name: element.name,
+      zodiac: zodiacAt(lonNow),
+      retrograde: isRetrogradeMotion(lonPrev, lonNow),
+    });
+  }
+
+  charts.set("moon", {
+    id: "moon",
+    name: "Moon",
+    zodiac: zodiacAt(geocentricLongitude(moonAu, earthAu)),
+    retrograde: false,
+  });
+
+  const chartList = CHART_ORDER.map((id) => charts.get(id)!);
+  const aspects: ChartAspect[] = [];
+  for (let i = 0; i < chartList.length; i++) {
+    for (let j = i + 1; j < chartList.length; j++) {
+      const from = chartList[i]!;
+      const to = chartList[j]!;
+      const hit = matchAspect(from.zodiac.longitudeDeg, to.zodiac.longitudeDeg);
+      if (!hit) continue;
+      aspects.push({
+        fromId: from.id,
+        toId: to.id,
+        fromName: from.name,
+        toName: to.name,
+        kind: hit.kind,
+        glyph: hit.glyph,
+        separationDeg: hit.separationDeg,
+        orbDeg: hit.orbDeg,
+      });
+    }
+  }
+  aspects.sort((a, b) => a.orbDeg - b.orbDeg);
+
   const bodies: BodyPlacement[] = [];
 
   bodies.push({
@@ -331,6 +460,7 @@ export function buildOrreryModel(input: {
     orbitalPhase: 0,
     color: SUN_COLOR,
     displayRadius: SUN_DISPLAY_RADIUS,
+    chart: charts.get("sun")!,
   });
 
   for (const element of PLANETS) {
@@ -348,6 +478,7 @@ export function buildOrreryModel(input: {
       orbitalPhase: orbitalPhaseFromLongitude(longitude, element),
       color: element.color,
       displayRadius: element.displayRadius,
+      chart: element.id === "earth" ? null : charts.get(element.id)!,
     });
   }
 
@@ -362,14 +493,42 @@ export function buildOrreryModel(input: {
     orbitalPhase: ((days / MOON_PERIOD_DAYS) % 1 + 1) % 1,
     color: MOON_COLOR,
     displayRadius: MOON_DISPLAY_RADIUS,
+    chart: charts.get("moon")!,
   });
+
+  const houses =
+    input.latitude !== undefined && Number.isFinite(input.latitude)
+      ? {
+          ascendant: zodiacAt(ascendantLongitudeDeg(instant, input.latitude, input.longitude)),
+          midheaven: zodiacAt(midheavenLongitudeDeg(instant, input.longitude)),
+        }
+      : null;
 
   return {
     instant,
     bodies,
+    charts: chartList,
+    aspects,
+    houses,
     earthSeason: earthSeasonFromDayIndex(input.clock.dayIndex, input.clock.year),
     focusId,
   };
+}
+
+export function chartById(model: OrreryModel, id: ChartBodyId): BodyChart | undefined {
+  return model.charts.find((chart) => chart.id === id);
+}
+
+/** Chart for the focused body. Earth shows the Sun, the sign of the season. */
+export function focusChart(model: OrreryModel, id: BodyId): BodyChart | undefined {
+  if (id === "earth") return chartById(model, "sun");
+  if (id === "sun") return chartById(model, "sun");
+  return chartById(model, id);
+}
+
+export function aspectsFor(model: OrreryModel, id: BodyId): ChartAspect[] {
+  const target = id === "earth" ? "sun" : id;
+  return model.aspects.filter((aspect) => aspect.fromId === target || aspect.toId === target);
 }
 
 export function bodyById(model: OrreryModel, id: BodyId): BodyPlacement | undefined {

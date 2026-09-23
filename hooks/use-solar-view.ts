@@ -309,10 +309,11 @@ export function useSolarView(initial?: ParsedView) {
       buildOrreryModel({
         clock,
         longitude,
+        latitude,
         focusId: focusPlanet,
         visiblePlanets,
       }),
-    [clock, longitude, focusPlanet, visiblePlanets],
+    [clock, longitude, latitude, focusPlanet, visiblePlanets],
   );
 
   const dayCount = daysInYear(year);

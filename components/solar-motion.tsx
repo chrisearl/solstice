@@ -54,6 +54,7 @@ export function readLiveOrrery(
   return buildOrreryModel({
     clock: motion.clock.current,
     longitude: motion.longitude.current,
+    latitude: motion.latitude.current,
     focusId,
     visiblePlanets,
   });

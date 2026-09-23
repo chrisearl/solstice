@@ -13,6 +13,7 @@ import {
 } from "react";
 import * as THREE from "three";
 import { FrameCamera } from "@/components/frame-camera";
+import { HorizonChart } from "@/components/horizon-chart";
 import { watchContextLoss } from "@/components/scene-boundary";
 import { readLiveBodies, useSolarMotion } from "@/components/solar-motion";
 import { createAppliancePoints } from "@/lib/scene-framing";
@@ -23,6 +24,7 @@ import {
   davinciVertexShader,
 } from "@/lib/davinci-shader";
 import type { LayoutInsets } from "@/lib/layout-insets";
+import type { OrreryModel } from "@/lib/orrery";
 import { DAVINCI_DISC_FILL_OPACITY, davinciDiscFillColor } from "@/lib/light";
 import {
   ARC_HIERARCHY,
@@ -71,6 +73,8 @@ export interface DavinciSceneProps {
   moonArc: SkyPath;
   showSun: boolean;
   showMoon: boolean;
+  orreryModel: OrreryModel;
+  latitude: number;
   resetSignal: number;
   layoutInsets: LayoutInsets;
   onContextLost?: () => void;
@@ -85,6 +89,8 @@ export function DavinciScene({
   moonArc,
   showSun,
   showMoon,
+  orreryModel,
+  latitude,
   resetSignal,
   layoutInsets,
   onContextLost,
@@ -116,6 +122,8 @@ export function DavinciScene({
         moonArc={moonArc}
         showSun={showSun}
         showMoon={showMoon}
+        orreryModel={orreryModel}
+        latitude={latitude}
         resetSignal={resetSignal}
         layoutInsets={layoutInsets}
         reducedMotion={reducedMotion}
@@ -132,6 +140,8 @@ function InkInstrument({
   moonArc,
   showSun,
   showMoon,
+  orreryModel,
+  latitude,
   resetSignal,
   layoutInsets,
   reducedMotion,
@@ -142,6 +152,15 @@ function InkInstrument({
     <>
       <group>
         <InkCompass sun={sun} />
+        <HorizonChart
+          model={orreryModel}
+          latitude={latitude}
+          sun={sun}
+          moon={moon}
+          showSun={showSun}
+          showMoon={showMoon}
+          theme="davinci"
+        />
         {showSun && <InkHorizon horizon={horizon} />}
         <InkGnomon />
         {showSun && <InkShadowRig sun={sun} />}

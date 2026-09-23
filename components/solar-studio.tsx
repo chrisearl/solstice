@@ -244,6 +244,8 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
               moonArc={moonModel.arc}
               showSun={showSun}
               showMoon={showMoon}
+              orreryModel={orreryModel}
+              latitude={latitude}
               resetSignal={resetSignal}
               layoutInsets={sceneInsets}
               active={nightAstrolabe}
@@ -275,6 +277,8 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
                 moonArc={moonModel.arc}
                 showSun={showSun}
                 showMoon={showMoon}
+                orreryModel={orreryModel}
+                latitude={latitude}
                 resetSignal={resetSignal}
                 layoutInsets={sceneInsets}
                 onContextLost={onContextLost}

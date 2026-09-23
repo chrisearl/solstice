@@ -1,3 +1,5 @@
+import type { ZodiacPlacement, ZodiacSign } from "./astrology.ts";
+import type { BodyChart, ChartAspect } from "./orrery.ts";
 import { daysSinceJ2000 } from "./orrery.ts";
 import { dayIndexFromUtcDate, PRESETS } from "./solar.ts";
 
@@ -212,4 +214,34 @@ export function formatHeliocentricLongitude(longitudeDeg: number): string {
   if (!Number.isFinite(longitudeDeg)) return "—";
   const wrapped = ((longitudeDeg % 360) + 360) % 360;
   return `λ☉ ${wrapped.toFixed(1)}°`;
+}
+
+function titleWord(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+export function formatSignDegree(zodiac: ZodiacPlacement): string {
+  if (!Number.isFinite(zodiac.degreeInSign)) return "—";
+  const degree = Math.floor(zodiac.degreeInSign + 1e-9);
+  const minutes = Math.min(59, Math.floor((zodiac.degreeInSign - degree) * 60 + 1e-6));
+  return `${degree}°${String(minutes).padStart(2, "0")}′`;
+}
+
+/** Compact tag for a 3D label: glyph, whole degree, retrograde mark. */
+export function formatChartTag(chart: Pick<BodyChart, "zodiac" | "retrograde">): string {
+  const degree = Math.floor(chart.zodiac.degreeInSign + 1e-9);
+  return `${chart.zodiac.sign.glyph} ${degree}°${chart.retrograde ? " Rx" : ""}`;
+}
+
+export function formatChartReading(chart: Pick<BodyChart, "zodiac" | "retrograde">): string {
+  const motion = chart.retrograde ? " Rx" : "";
+  return `${formatSignDegree(chart.zodiac)} ${chart.zodiac.sign.glyph} ${chart.zodiac.sign.name}${motion}`;
+}
+
+export function formatZodiacNature(sign: ZodiacSign): string {
+  return `${titleWord(sign.element)} · ${titleWord(sign.modality)} · ${sign.ruler}`;
+}
+
+export function formatAspectOrb(aspect: ChartAspect): string {
+  return `${aspect.glyph} ${aspect.orbDeg.toFixed(1)}°`;
 }
