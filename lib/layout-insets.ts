@@ -13,7 +13,7 @@ export interface LayoutConfig {
   breakpoint: Breakpoint;
   inspectorState: InspectorState;
   inspectorPinned: boolean;
-  /** Unified studio sheet expanded (uses closed height for scene framing either way). */
+  /** Mobile studio sheet open at half the viewport; frames the appliance in the top half. */
   sheetExpanded?: boolean;
 }
 
@@ -50,8 +50,10 @@ const INSPECTOR_OPEN_RATIO = 0.52;
 export const STUDIO_SHEET_CLOSED_HEIGHT = 52;
 /** @deprecated Use STUDIO_SHEET_CLOSED_HEIGHT */
 export const TIMELINE_PEEK_HEIGHT = STUDIO_SHEET_CLOSED_HEIGHT;
-/** Max expanded studio sheet height (px). */
+/** Max expanded studio sheet height (px) on tablet. */
 export const STUDIO_SHEET_EXPANDED_MAX = 280;
+/** Open studio sheet on mobile, as a fraction of the viewport. */
+export const STUDIO_SHEET_MOBILE_EXPANDED_RATIO = 0.5;
 const SHEET_CLOSED = STUDIO_SHEET_CLOSED_HEIGHT;
 
 export function computeLayoutInsets(
@@ -64,10 +66,11 @@ export function computeLayoutInsets(
   const top = VIEW_SWITCHER_ROW + 12;
 
   if (breakpoint === "mobile") {
-    let bottom = SHEET_CLOSED + 12;
-    if (inspectorState === "peek") bottom = INSPECTOR_PEEK + SHEET_CLOSED + 8;
+    const sheet = config.sheetExpanded ? height * STUDIO_SHEET_MOBILE_EXPANDED_RATIO : SHEET_CLOSED;
+    let bottom = sheet + 12;
+    if (inspectorState === "peek") bottom = Math.max(bottom, INSPECTOR_PEEK + SHEET_CLOSED + 8);
     if (inspectorState === "open") {
-      bottom = Math.min(height * INSPECTOR_OPEN_RATIO, 420) + SHEET_CLOSED + 8;
+      bottom = Math.max(bottom, Math.min(height * INSPECTOR_OPEN_RATIO, 420) + SHEET_CLOSED + 8);
     }
     return { left: 12, right: 12, top, bottom };
   }

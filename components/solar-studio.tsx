@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { PanelLeftOpen } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { AssumedControl } from "@/components/assumed-control";
 import { ControlPanel } from "@/components/control-panel";
 import { InspectorPanel } from "@/components/inspector-panel";
@@ -122,7 +122,11 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     closeInspector,
   } = useInspectorLayout();
 
-  const { insets } = useLayout(inspectorState, inspectorPinned);
+  const [sheetExpanded, setSheetExpanded] = useState(false);
+  const onSheetExpanded = useCallback((expanded: boolean) => {
+    setSheetExpanded(expanded);
+  }, []);
+  const { insets } = useLayout(inspectorState, inspectorPinned, sheetExpanded);
   const sceneInsets = useMemo(
     () =>
       fullscreen
@@ -403,7 +407,9 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
       {showStudioChrome && (
         <StudioSheet
           wide={showDesktopRail}
+          mobile={breakpoint === "mobile"}
           dockBesidePanel={showPinnedInspector}
+          onExpandedChange={onSheetExpanded}
           studioModel={view.model}
           playing={playing}
           loopDay={loopDay}

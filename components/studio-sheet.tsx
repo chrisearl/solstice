@@ -13,7 +13,7 @@ import {
   RotateCcw,
   SunMedium,
 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AltitudeSparkline } from "@/components/altitude-sparkline";
 import { OrbitalSparkline } from "@/components/orbital-sparkline";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 import {
   STUDIO_SHEET_CLOSED_HEIGHT,
   STUDIO_SHEET_EXPANDED_MAX,
+  STUDIO_SHEET_MOBILE_EXPANDED_RATIO,
 } from "@/lib/layout-insets";
 import type { StudioModel } from "@/lib/studio-view";
 import {
@@ -100,6 +101,9 @@ interface StudioSheetProps {
   wide?: boolean;
   /** Sit to the right of the pinned desktop inspector. */
   dockBesidePanel?: boolean;
+  /** Phone layout: open sheet covers half the viewport. */
+  mobile?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
   onMinutes: (value: number) => void;
   onDayIndex: (value: number) => void;
   onPlaying: (value: boolean) => void;
@@ -124,11 +128,23 @@ export function StudioSheet(props: StudioSheetProps) {
   const pageCount = 2;
   const expanded = state === "expanded";
   const wide = props.wide ?? false;
+  const mobile = props.mobile ?? false;
   const sheetHeight = expanded
     ? wide
       ? "calc(clamp(14rem, 36dvh, 20rem) + env(safe-area-inset-bottom, 0px))"
-      : `calc(min(${STUDIO_SHEET_EXPANDED_MAX}px, 38dvh) + env(safe-area-inset-bottom, 0px))`
+      : mobile
+        ? `${STUDIO_SHEET_MOBILE_EXPANDED_RATIO * 100}dvh`
+        : `calc(min(${STUDIO_SHEET_EXPANDED_MAX}px, 38dvh) + env(safe-area-inset-bottom, 0px))`
     : `calc(${STUDIO_SHEET_CLOSED_HEIGHT}px + env(safe-area-inset-bottom, 0px))`;
+  const onExpandedChange = props.onExpandedChange;
+
+  useEffect(() => {
+    onExpandedChange?.(expanded);
+  }, [expanded, onExpandedChange]);
+
+  useEffect(() => {
+    return () => onExpandedChange?.(false);
+  }, [onExpandedChange]);
 
   const scrollToPage = useCallback((index: number) => {
     const el = scrollRef.current;
