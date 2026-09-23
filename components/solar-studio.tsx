@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { PanelLeftOpen } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ControlPanel } from "@/components/control-panel";
 import { InspectorPanel } from "@/components/inspector-panel";
 import { SceneHud } from "@/components/scene-hud";
@@ -10,13 +10,13 @@ import { GuardedScene } from "@/components/scene-boundary";
 import { SolarMotionProvider } from "@/components/solar-motion";
 import { StudioSheet } from "@/components/studio-sheet";
 import { ViewSwitcher } from "@/components/view-switcher";
-import { useDavinciUnlock } from "@/hooks/use-davinci-unlock";
 import { useInspectorLayout, useLayout } from "@/hooks/use-layout";
+import { useDavinciUnlocked } from "@/hooks/use-davinci-unlock";
 import { useSolarView } from "@/hooks/use-solar-view";
 import type { BodyId } from "@/lib/orrery";
 import { STUDIO_CHROME_TOP_CLASS } from "@/lib/layout-insets";
 import { resolveStudioView } from "@/lib/studio-view";
-import type { ParsedView } from "@/lib/view-query";
+import { serializeViewQuery, type ParsedView } from "@/lib/view-query";
 import { locationLabel, parseIsoDate } from "@/lib/format";
 
 const SolarScene = dynamic(() => import("@/components/solar-scene"), {
@@ -31,12 +31,12 @@ const DavinciView = dynamic(() => import("@/components/davinci-view"), {
 
 const OrreryScene = dynamic(() => import("@/components/orrery-scene"), {
   ssr: false,
-  loading: () => <OrreryPlaceholder />,
+  loading: () => <ScenePlaceholder />,
 });
 
 const DavinciOrreryView = dynamic(() => import("@/components/davinci-orrery-view"), {
   ssr: false,
-  loading: () => <DavinciPlaceholder />,
+  loading: () => <ScenePlaceholder />,
 });
 
 export function SolarStudio({ initial }: { initial?: ParsedView }) {
@@ -60,7 +60,6 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     studioModel,
     studioTheme,
     setStudioModel,
-    setStudioTheme,
     focusPlanet,
     setFocusPlanet,
     visiblePlanets,
@@ -102,8 +101,16 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   const [orreryMounted, setOrreryMounted] = useState(
     () => initial?.model === "orrery",
   );
-  const { davinciUnlocked } = useDavinciUnlock();
+  const davinciUnlocked = useDavinciUnlocked();
   const view = resolveStudioView(studioModel, studioTheme, davinciUnlocked);
+  const realtime =
+    view.model === "orrery" ? orrerySpeed.realtime : astrolabeSpeed.realtime;
+
+  useEffect(() => {
+    if (studioTheme === "davinci" && davinciUnlocked) {
+      setDavinciMounted(true);
+    }
+  }, [studioTheme, davinciUnlocked]);
 
   const {
     breakpoint,
@@ -134,11 +141,18 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     setStudioModel(next);
   };
 
-  const handleTheme = (next: typeof studioTheme) => {
-    if (next === "davinci" && !davinciUnlocked) return;
-    if (next === "davinci") setDavinciMounted(true);
-    setStudioTheme(next);
-  };
+  const settingsHref = useMemo(
+    () =>
+      `/settings?${serializeViewQuery({
+        latitude,
+        longitude,
+        date: model.date,
+        minutes,
+        model: studioModel,
+        theme: studioTheme,
+      })}`,
+    [latitude, longitude, model.date, minutes, studioModel, studioTheme],
+  );
 
   const showStudioChrome = !fullscreen;
   const parchment = view.theme === "davinci";
@@ -190,6 +204,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   };
 
   const orrerySceneProps = {
+    playing,
     model: orreryModel,
     focusId: focusPlanet,
     visiblePlanets,
@@ -356,9 +371,8 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
         <ViewSwitcher
           view={view}
           fullscreen={fullscreen}
-          davinciUnlocked={davinciUnlocked}
+          settingsHref={settingsHref}
           onModel={handleModel}
-          onTheme={handleTheme}
           onFullscreen={() => setFullscreen((value) => !value)}
         />
       )}
@@ -403,6 +417,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
           dayIndex={dayIndex}
           dayCount={dayCount}
           minutes={minutes}
+          realtime={realtime}
           tone={parchment ? "parchment" : "night"}
           onMinutes={seekMinutes}
           onDayIndex={(value) => seekDate(year, value)}
@@ -442,19 +457,6 @@ function ScenePlaceholder() {
         <div className="mx-auto size-10 animate-pulse rounded-full bg-[#f0b429] shadow-[0_0_32px_rgba(240,180,41,0.8)] motion-reduce:animate-none" />
         <p className="mt-4 text-sm tracking-[0.18em] text-white/50 uppercase">
           Charting the sky
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function OrreryPlaceholder() {
-  return (
-    <div className="flex h-full w-full items-center justify-center bg-[#07080d]">
-      <div className="text-center">
-        <div className="mx-auto size-10 animate-pulse rounded-full bg-[#f0b429] shadow-[0_0_32px_rgba(240,180,41,0.8)] motion-reduce:animate-none" />
-        <p className="mt-4 text-sm tracking-[0.18em] text-white/50 uppercase">
-          Charting the orrery
         </p>
       </div>
     </div>

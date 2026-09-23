@@ -19,7 +19,8 @@ import { OrbitalSparkline } from "@/components/orbital-sparkline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import { formatCivilTime, resolveTimeZone } from "@/lib/civil-time";
+import { formatCivilClock, formatCivilTime, resolveTimeZone } from "@/lib/civil-time";
+import { formatUtcTime } from "@/lib/format";
 import {
   formatAu,
   formatAzimuth,
@@ -88,6 +89,7 @@ interface StudioSheetProps {
   dayIndex: number;
   dayCount: number;
   minutes: number;
+  realtime?: boolean;
   tone?: ChromeTone;
   onMinutes: (value: number) => void;
   onDayIndex: (value: number) => void;
@@ -186,13 +188,19 @@ function StatusBar(
   },
 ) {
   const isOrrery = props.studioModel === "orrery";
-  const timeLabel = isOrrery
-    ? formatDayOfYear(props.dayIndex, props.dayCount, props.year)
-    : formatMinutes(props.minutes);
+  const meanLabel = formatMinutes(props.minutes);
+  const dayLabel = formatDayOfYear(props.dayIndex, props.dayCount, props.year);
+  const utcTime = formatUtcTime(props.orreryModel.instant);
 
-  const secondary = useMemo(() => {
-    if (isOrrery) return formatMinutes(props.minutes);
+  const { timeLabel, secondary } = useMemo(() => {
     const tz = resolveTimeZone(props.latitude, props.longitude);
+    if (isOrrery) {
+      const civilClock = tz ? formatCivilClock(props.orreryModel.instant, tz) : null;
+      return {
+        timeLabel: props.realtime && civilClock ? civilClock : dayLabel,
+        secondary: props.realtime && civilClock ? `${utcTime} UTC` : meanLabel,
+      };
+    }
     const date = dateFromDayIndex(props.year, props.dayIndex);
     const instant = instantAtMinutes(
       date.getUTCFullYear(),
@@ -201,16 +209,27 @@ function StatusBar(
       props.minutes,
       props.longitude,
     );
-    const civil = formatCivilTime(instant, tz);
-    return civil ?? formatLongDate(props.model.date);
+    const civilClock = tz ? formatCivilClock(instant, tz) : null;
+    const civilTime = tz ? formatCivilTime(instant, tz) : null;
+    return {
+      timeLabel: props.realtime && civilClock ? civilClock : meanLabel,
+      secondary:
+        props.realtime && civilClock
+          ? `${meanLabel} mean solar`
+          : civilTime ?? formatLongDate(props.model.date),
+    };
   }, [
     isOrrery,
+    props.realtime,
     props.latitude,
     props.longitude,
     props.year,
     props.dayIndex,
     props.minutes,
-    props.dayCount,
+    props.orreryModel.instant,
+    dayLabel,
+    meanLabel,
+    utcTime,
     props.model.date,
   ]);
 
@@ -369,17 +388,29 @@ function AstrolabeTimelinePage(props: StudioSheetProps & { tone: ChromeTone }) {
     () => resolveTimeZone(props.latitude, props.longitude),
     [props.latitude, props.longitude],
   );
-  const civilTime = useMemo(() => {
+  const clockInstant = useMemo(() => {
     const date = dateFromDayIndex(props.year, props.dayIndex);
-    const instant = instantAtMinutes(
+    return instantAtMinutes(
       date.getUTCFullYear(),
       date.getUTCMonth(),
       date.getUTCDate(),
       props.minutes,
       props.longitude,
     );
-    return formatCivilTime(instant, timeZone);
-  }, [props.year, props.dayIndex, props.minutes, props.longitude, timeZone]);
+  }, [props.year, props.dayIndex, props.minutes, props.longitude]);
+  const civilClock = useMemo(
+    () => formatCivilClock(clockInstant, timeZone),
+    [clockInstant, timeZone],
+  );
+  const civilTime = useMemo(
+    () => formatCivilTime(clockInstant, timeZone),
+    [clockInstant, timeZone],
+  );
+  const meanLabel = formatMinutes(props.minutes);
+  const realtime = props.realtime ?? props.astrolabeSpeed.realtime;
+  const primaryLabel = realtime && civilClock ? civilClock : meanLabel;
+  const meanSolarNote =
+    realtime && civilClock ? `${meanLabel} mean solar` : civilTime ? `${civilTime} civil` : null;
   const trackStyle = useMemo(
     () => phaseTrackStyle(props.samples, props.times, props.longitude, props.tone, DAY_MINUTES),
     [props.samples, props.times, props.longitude, props.tone],
@@ -391,7 +422,6 @@ function AstrolabeTimelinePage(props: StudioSheetProps & { tone: ChromeTone }) {
     return now.minutes;
   }, [showNowMarker, props.longitude, props.year, props.dayIndex]);
   const minutes = Math.min(Math.max(props.minutes, 0), DAY_MINUTES);
-  const meanLabel = formatMinutes(props.minutes);
 
   return (
     <section className="space-y-2" aria-label="Timeline">
@@ -426,8 +456,8 @@ function AstrolabeTimelinePage(props: StudioSheetProps & { tone: ChromeTone }) {
         <span>{formatMinutes(0)}</span>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <TimeBadge label="mean" value={meanLabel} />
-        {civilTime && <TimeBadge label="civil" value={civilTime} />}
+        <TimeBadge label={realtime && civilClock ? "wall" : "mean"} value={primaryLabel} />
+        {meanSolarNote && <TimeBadge label="note" value={meanSolarNote} />}
         <Input
           type="time"
           value={minutesToTimeValue(props.minutes)}

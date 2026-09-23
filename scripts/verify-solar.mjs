@@ -25,6 +25,10 @@ import {
   advanceSolarClock,
   clockFromInstant,
   initialClock,
+  nextOrreryPlaybackSpeed,
+  nextPlaybackSpeed,
+  ORRERY_PLAYBACK_SPEEDS,
+  PLAYBACK_SPEEDS,
 } from "../lib/timeline.ts";
 
 const ORLANDO = { lat: 28.5383, lng: -81.3792 };
@@ -351,6 +355,34 @@ test("advanceSolarClock can loop the same calendar day at midnight", () => {
   assert.equal(wrapped.clock.year, 2026);
   assert.equal(wrapped.clock.dayIndex, june);
   assert.ok(Math.abs(wrapped.clock.minutes - 10) < 1e-6);
+});
+
+test("astrolabe playback speeds include Realtime and day-scale presets", () => {
+  assert.deepEqual(
+    PLAYBACK_SPEEDS.map((speed) => speed.label),
+    ["Realtime", "1m", "1hr", "12hr", "1day", "7day"],
+  );
+  assert.equal(PLAYBACK_SPEEDS[0].realtime, true);
+  assert.equal(PLAYBACK_SPEEDS[1].minutesPerSecond, 1);
+  assert.equal(PLAYBACK_SPEEDS[2].minutesPerSecond, 60);
+  assert.equal(PLAYBACK_SPEEDS[3].minutesPerSecond, 12 * 60);
+  assert.equal(PLAYBACK_SPEEDS[4].minutesPerSecond, 1440);
+  assert.equal(PLAYBACK_SPEEDS[5].minutesPerSecond, 7 * 1440);
+  assert.equal(nextPlaybackSpeed(PLAYBACK_SPEEDS[5]), PLAYBACK_SPEEDS[0]);
+});
+
+test("orrery playback speeds include Realtime and year-scale presets", () => {
+  assert.deepEqual(
+    ORRERY_PLAYBACK_SPEEDS.map((speed) => speed.label),
+    ["Realtime", "1d", "1mo", "6mo", "1yr", "5yr"],
+  );
+  assert.equal(ORRERY_PLAYBACK_SPEEDS[0].realtime, true);
+  assert.equal(ORRERY_PLAYBACK_SPEEDS[1].daysPerSecond, 1);
+  assert.ok(Math.abs(ORRERY_PLAYBACK_SPEEDS[2].daysPerSecond - 365.25 / 12) < 1e-6);
+  assert.ok(Math.abs(ORRERY_PLAYBACK_SPEEDS[3].daysPerSecond - (365.25 / 12) * 6) < 1e-6);
+  assert.ok(Math.abs(ORRERY_PLAYBACK_SPEEDS[4].daysPerSecond - 365.25) < 1e-6);
+  assert.ok(Math.abs(ORRERY_PLAYBACK_SPEEDS[5].daysPerSecond - 365.25 * 5) < 1e-6);
+  assert.equal(nextOrreryPlaybackSpeed(ORRERY_PLAYBACK_SPEEDS[5]), ORRERY_PLAYBACK_SPEEDS[0]);
 });
 
 test("view query round-trips place, date, and time", () => {

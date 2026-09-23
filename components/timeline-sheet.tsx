@@ -7,7 +7,7 @@ import { OrbitalSparkline } from "@/components/orbital-sparkline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import { formatCivilTime, resolveTimeZone } from "@/lib/civil-time";
+import { formatCivilClock, formatCivilTime, resolveTimeZone } from "@/lib/civil-time";
 import {
   formatDayOfYear,
   formatMinutes,
@@ -85,22 +85,32 @@ function AstrolabeTimelineSheet(props: TimelineSheetProps) {
     () => resolveTimeZone(props.latitude, props.longitude),
     [props.latitude, props.longitude],
   );
-  const civilTime = useMemo(() => {
+  const clockInstant = useMemo(() => {
     const date = dateFromDayIndex(props.year, props.dayIndex);
-    const instant = instantAtMinutes(
+    return instantAtMinutes(
       date.getUTCFullYear(),
       date.getUTCMonth(),
       date.getUTCDate(),
       props.minutes,
       props.longitude,
     );
-    return formatCivilTime(instant, timeZone);
-  }, [props.year, props.dayIndex, props.minutes, props.longitude, timeZone]);
+  }, [props.year, props.dayIndex, props.minutes, props.longitude]);
+  const civilClock = useMemo(
+    () => formatCivilClock(clockInstant, timeZone),
+    [clockInstant, timeZone],
+  );
+  const civilTime = useMemo(
+    () => formatCivilTime(clockInstant, timeZone),
+    [clockInstant, timeZone],
+  );
   const trackStyle = useMemo(
     () => phaseTrackStyle(props.samples, props.times, props.longitude, tone, DAY_MINUTES),
     [props.samples, props.times, props.longitude, tone],
   );
   const meanLabel = formatMinutes(props.minutes);
+  const realtime = props.astrolabeSpeed.realtime;
+  const primaryLabel = realtime && civilClock ? civilClock : meanLabel;
+  const secondaryLabel = realtime && civilClock ? `${meanLabel} mean solar` : civilTime ? `${civilTime} civil` : "mean solar";
   const nowOffset = useMemo(() => {
     if (!showNowMarker) return undefined;
     const now = clockFromInstant(new Date(), props.longitude);
@@ -133,8 +143,8 @@ function AstrolabeTimelineSheet(props: TimelineSheetProps) {
         parchment={parchment}
         state={state}
         setState={setState}
-        primaryLabel={meanLabel}
-        secondaryLabel={civilTime ? `${civilTime} civil` : "mean solar"}
+        primaryLabel={primaryLabel}
+        secondaryLabel={secondaryLabel}
         playing={props.playing}
         loopActive={props.loopDay}
         loopLabel={props.loopDay ? "Day loop on" : "Day loop off"}

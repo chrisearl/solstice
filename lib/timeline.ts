@@ -16,24 +16,32 @@ export const SOLAR_YEAR_MAX = 2100;
 const DAYS_PER_MONTH = 365.25 / 12;
 const DAYS_PER_YEAR = 365.25;
 
-/** Simulated calendar time that passes per real second at each speed. */
+/** Follows the system clock at 1:1 while playback is running. */
+export const REALTIME_PLAYBACK = { label: "Realtime", realtime: true } as const;
+
+/** Astrolabe: simulated mean-solar minutes per real second at each speed. */
 export const PLAYBACK_SPEEDS = [
-  { label: "1day", minutesPerSecond: DAY_MINUTES },
-  { label: "7day", minutesPerSecond: 7 * DAY_MINUTES },
-  { label: "1mo", minutesPerSecond: DAYS_PER_MONTH * DAY_MINUTES },
-  { label: "6mo", minutesPerSecond: 6 * DAYS_PER_MONTH * DAY_MINUTES },
-  { label: "1yr", minutesPerSecond: DAYS_PER_YEAR * DAY_MINUTES },
-  { label: "5yr", minutesPerSecond: 5 * DAYS_PER_YEAR * DAY_MINUTES },
+  REALTIME_PLAYBACK,
+  { label: "1m", realtime: false, minutesPerSecond: 1 },
+  { label: "1hr", realtime: false, minutesPerSecond: 60 },
+  { label: "12hr", realtime: false, minutesPerSecond: 12 * 60 },
+  { label: "1day", realtime: false, minutesPerSecond: DAY_MINUTES },
+  { label: "7day", realtime: false, minutesPerSecond: 7 * DAY_MINUTES },
 ] as const;
 
 export type PlaybackSpeed = (typeof PLAYBACK_SPEEDS)[number];
 
+/** Follows the system clock at 1:1 while playback is running. */
+export const REALTIME_ORRERY_PLAYBACK = { label: "Realtime", realtime: true } as const;
+
+/** Orrery: simulated calendar days per real second at each speed. */
 export const ORRERY_PLAYBACK_SPEEDS = [
-  { label: "1 d/s", daysPerSecond: 1 },
-  { label: "7 d/s", daysPerSecond: 7 },
-  { label: "30 d/s", daysPerSecond: 30 },
-  { label: "365 d/s", daysPerSecond: 365 },
-  { label: "3650 d/s", daysPerSecond: 3650 },
+  REALTIME_ORRERY_PLAYBACK,
+  { label: "1d", realtime: false, daysPerSecond: 1 },
+  { label: "1mo", realtime: false, daysPerSecond: DAYS_PER_MONTH },
+  { label: "6mo", realtime: false, daysPerSecond: 6 * DAYS_PER_MONTH },
+  { label: "1yr", realtime: false, daysPerSecond: DAYS_PER_YEAR },
+  { label: "5yr", realtime: false, daysPerSecond: 5 * DAYS_PER_YEAR },
 ] as const;
 
 export type OrreryPlaybackSpeed = (typeof ORRERY_PLAYBACK_SPEEDS)[number];
@@ -198,7 +206,7 @@ export function advanceOrreryClock(
 
   let totalMinutes = clock.minutes + deltaDays * DAY_MINUTES;
   let dayIndex = clock.dayIndex;
-  let year = clock.year;
+  const year = clock.year;
 
   if (options?.loopYear) {
     const dayCount = daysInYear(year);
