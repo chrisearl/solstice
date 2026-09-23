@@ -34,6 +34,13 @@ export const ARC_COLORS = {
 
 export const MOON_ARC_COLOR = "#b8c9de";
 
+/** Tight dotted stroke for the moon path above the horizon. */
+export const MOON_ARC_DOT = {
+  dashSize: 0.055,
+  gapSize: 0.07,
+  fadeFraction: 0.14,
+} as const;
+
 export const ORLANDO = { name: "Orlando, FL", lat: 28.5383, lng: -81.3792 };
 
 export const PRESETS = [
@@ -307,6 +314,88 @@ export function splitPathRuns(points: Vec3[], maxGap = 1.25): Vec3[][] {
     else runs[runs.length - 1].push(next);
   }
   return runs.filter((run) => run.length > 1);
+}
+
+export interface FadedPathSegment {
+  points: [Vec3, Vec3];
+  opacity: number;
+}
+
+function vecDistance(a: Vec3, b: Vec3): number {
+  return Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+}
+
+function interpolatePathPoint(points: Vec3[], cumulative: number[], distance: number): Vec3 {
+  if (distance <= 0) return points[0];
+  const total = cumulative[cumulative.length - 1];
+  if (distance >= total) return points[points.length - 1];
+
+  for (let index = 1; index < points.length; index++) {
+    if (distance <= cumulative[index]) {
+      const span = cumulative[index] - cumulative[index - 1];
+      const blend = span === 0 ? 0 : (distance - cumulative[index - 1]) / span;
+      const start = points[index - 1];
+      const end = points[index];
+      return {
+        x: start.x + (end.x - start.x) * blend,
+        y: start.y + (end.y - start.y) * blend,
+        z: start.z + (end.z - start.z) * blend,
+      };
+    }
+  }
+
+  return points[points.length - 1];
+}
+
+/** Smoothstep fade at both ends of an open arc run (0 and 1). */
+export function fadeOpacityAlongPath(
+  t: number,
+  fadeFraction: number = MOON_ARC_DOT.fadeFraction,
+): number {
+  if (fadeFraction <= 0) return 1;
+
+  const smooth = (value: number) => value * value * (3 - 2 * value);
+
+  if (t < fadeFraction) return smooth(t / fadeFraction);
+  if (t > 1 - fadeFraction) return smooth((1 - t) / fadeFraction);
+  return 1;
+}
+
+/** Split a path run into short segments with tapered opacity at the endpoints. */
+export function fadedPathSegments(
+  points: Vec3[],
+  options: {
+    fadeFraction?: number;
+    segmentCount?: number;
+    baseOpacity?: number;
+  } = {},
+): FadedPathSegment[] {
+  const fadeFraction = options.fadeFraction ?? MOON_ARC_DOT.fadeFraction;
+  const segmentCount = options.segmentCount ?? 22;
+  const baseOpacity = options.baseOpacity ?? 1;
+
+  if (points.length < 2) return [];
+
+  const cumulative = [0];
+  for (let index = 1; index < points.length; index++) {
+    cumulative.push(cumulative[index - 1] + vecDistance(points[index - 1], points[index]));
+  }
+
+  const total = cumulative[cumulative.length - 1];
+  if (total === 0) return [];
+
+  const segments: FadedPathSegment[] = [];
+  for (let step = 0; step < segmentCount; step++) {
+    const t0 = step / segmentCount;
+    const t1 = (step + 1) / segmentCount;
+    const start = interpolatePathPoint(points, cumulative, t0 * total);
+    const end = interpolatePathPoint(points, cumulative, t1 * total);
+    const opacity = baseOpacity * fadeOpacityAlongPath((t0 + t1) / 2, fadeFraction);
+    if (opacity <= 0.01) continue;
+    segments.push({ points: [start, end], opacity });
+  }
+
+  return segments;
 }
 
 function sampleBodyPath(
