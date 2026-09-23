@@ -74,7 +74,10 @@ export function SceneHud(props: SceneHudProps) {
   if (props.studioModel === "orrery") {
     return <OrrerySceneHud {...props} />;
   }
+  return <AstrolabeSceneHud {...props} />;
+}
 
+function AstrolabeSceneHud(props: SceneHudProps) {
   const location = locationLabel(props.latitude, props.longitude);
   const timeLabel = formatMinutes(props.minutes);
   const dateLabel = formatLongDate(props.model.date);
