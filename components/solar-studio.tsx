@@ -402,6 +402,8 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
 
       {showStudioChrome && (
         <StudioSheet
+          wide={showDesktopRail}
+          dockBesidePanel={showPinnedInspector}
           studioModel={view.model}
           playing={playing}
           loopDay={loopDay}

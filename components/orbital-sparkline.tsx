@@ -1,15 +1,18 @@
 import type { ChromeTone } from "@/lib/light";
+import { cn } from "@/lib/utils";
 
 export function OrbitalSparkline({
   samples,
   dayIndex,
   dayCount,
   tone = "night",
+  className,
 }: {
   samples: number[];
   dayIndex: number;
   dayCount: number;
   tone?: ChromeTone;
+  className?: string;
 }) {
   const parchment = tone === "parchment";
   if (samples.length < 2) return null;
@@ -33,7 +36,7 @@ export function OrbitalSparkline({
       preserveAspectRatio="none"
       overflow="visible"
       aria-hidden
-      className="h-11 w-full overflow-visible"
+      className={cn("block h-11 w-full overflow-visible", className)}
     >
       <line
         x1="0"
@@ -41,16 +44,27 @@ export function OrbitalSparkline({
         x2={width}
         y2={height * 0.5}
         stroke={parchment ? "#9b764b44" : "#ffffff18"}
-        strokeWidth="0.5"
+        strokeWidth="1"
+        vectorEffect="non-scaling-stroke"
       />
-      <path d={path} fill="none" stroke={stroke} strokeWidth="1.2" opacity={0.85} />
+      <path
+        d={path}
+        fill="none"
+        stroke={stroke}
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+        opacity={0.9}
+      />
       <line
         x1={playhead}
         y1="0"
         x2={playhead}
         y2={height}
         stroke={parchment ? "#3a2310" : "#f0b429"}
-        strokeWidth="0.8"
+        strokeWidth="1.25"
+        vectorEffect="non-scaling-stroke"
         opacity={0.9}
       />
     </svg>

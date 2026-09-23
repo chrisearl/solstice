@@ -1,5 +1,6 @@
 import type { ChromeTone } from "@/lib/light";
 import { MOON_ARC_COLOR, type AltitudeSample } from "@/lib/solar";
+import { cn } from "@/lib/utils";
 
 /** Room under the horizon line so a deep night still reads as a curve. */
 const ALTITUDE_PAD_RATIO = 0.1;
@@ -31,6 +32,7 @@ export function AltitudeSparkline({
   tone = "night",
   rangeMinutes = 1440,
   nowOffset,
+  className,
 }: {
   samples: AltitudeSample[];
   minutes: number;
@@ -39,6 +41,7 @@ export function AltitudeSparkline({
   tone?: ChromeTone;
   rangeMinutes?: number;
   nowOffset?: number;
+  className?: string;
 }) {
   const parchment = tone === "parchment";
   if (samples.length < 2) return null;
@@ -69,7 +72,7 @@ export function AltitudeSparkline({
       preserveAspectRatio="none"
       overflow="visible"
       aria-hidden
-      className="h-11 w-full overflow-visible"
+      className={cn("block h-11 w-full overflow-visible", className)}
     >
       <defs>
         <filter id="sparkline-glow" x="-8%" y="-40%" width="116%" height="180%" colorInterpolationFilters="sRGB">

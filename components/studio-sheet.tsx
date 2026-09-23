@@ -41,6 +41,7 @@ import {
 } from "@/lib/format";
 import { aspectsFor, bodyById, chartById, focusChart, type OrreryModel, type PlanetId } from "@/lib/orrery";
 import { phaseChipStyle, phaseLabelColor, phaseTrackStyle, type ChromeTone } from "@/lib/light";
+import { cn } from "@/lib/utils";
 import {
   STUDIO_SHEET_CLOSED_HEIGHT,
   STUDIO_SHEET_EXPANDED_MAX,
@@ -95,6 +96,10 @@ interface StudioSheetProps {
   minutes: number;
   realtime?: boolean;
   tone?: ChromeTone;
+  /** Desktop rail: one arranged timeline, no paging or scroll. */
+  wide?: boolean;
+  /** Sit to the right of the pinned desktop inspector. */
+  dockBesidePanel?: boolean;
   onMinutes: (value: number) => void;
   onDayIndex: (value: number) => void;
   onPlaying: (value: boolean) => void;
@@ -118,6 +123,12 @@ export function StudioSheet(props: StudioSheetProps) {
 
   const pageCount = 2;
   const expanded = state === "expanded";
+  const wide = props.wide ?? false;
+  const sheetHeight = expanded
+    ? wide
+      ? "calc(clamp(14rem, 36dvh, 20rem) + env(safe-area-inset-bottom, 0px))"
+      : `calc(min(${STUDIO_SHEET_EXPANDED_MAX}px, 38dvh) + env(safe-area-inset-bottom, 0px))`
+    : `calc(${STUDIO_SHEET_CLOSED_HEIGHT}px + env(safe-area-inset-bottom, 0px))`;
 
   const scrollToPage = useCallback((index: number) => {
     const el = scrollRef.current;
@@ -133,18 +144,19 @@ export function StudioSheet(props: StudioSheetProps) {
     setPage(Math.round(el.scrollLeft / el.clientWidth));
   }, []);
 
-  const maxHeight = expanded
-    ? `calc(min(${STUDIO_SHEET_EXPANDED_MAX}px, 38dvh) + env(safe-area-inset-bottom, 0px))`
-    : `calc(${STUDIO_SHEET_CLOSED_HEIGHT}px + env(safe-area-inset-bottom, 0px))`;
-
   return (
     <aside
       data-chrome={parchment ? "parchment" : undefined}
       data-chrome-panel
-      className="pointer-events-auto fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,30,0.96),rgba(8,10,16,0.94))] shadow-[0_-24px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl transition-[max-height] duration-300 ease-out motion-reduce:transition-none"
+      className={cn(
+        "pointer-events-auto fixed bottom-0 z-50 flex flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,30,0.96),rgba(8,10,16,0.94))] shadow-[0_-24px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl transition-[height,max-height] duration-300 ease-out motion-reduce:transition-none",
+        props.dockBesidePanel
+          ? "right-0 left-[calc(1.5rem+min(340px,calc(100vw-30rem)))] 2xl:left-[calc(1.5rem+min(380px,calc(100vw-34rem)))]"
+          : "inset-x-0",
+      )}
       style={{
-        height: maxHeight,
-        maxHeight,
+        height: sheetHeight,
+        maxHeight: sheetHeight,
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
@@ -155,7 +167,17 @@ export function StudioSheet(props: StudioSheetProps) {
         onToggle={() => setState(expanded ? "closed" : "expanded")}
       />
 
-      {expanded && (
+      {expanded && wide && (
+        <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3 md:px-4">
+          {props.studioModel === "orrery" ? (
+            <OrreryTimelinePage {...props} tone={tone} layout="rail" />
+          ) : (
+            <AstrolabeTimelinePage {...props} tone={tone} layout="rail" />
+          )}
+        </div>
+      )}
+
+      {expanded && !wide && (
         <>
           <div
             ref={scrollRef}
@@ -203,7 +225,7 @@ function StatusBar(
       const civilClock = tz ? formatCivilClock(props.orreryModel.instant, tz) : null;
       return {
         timeLabel: props.realtime && civilClock ? civilClock : dayLabel,
-        secondary: props.realtime && civilClock ? `${utcTime} UTC` : meanLabel,
+        secondary: props.realtime && civilClock ? utcTime : meanLabel,
       };
     }
     const date = dateFromDayIndex(props.year, props.dayIndex);
@@ -306,7 +328,7 @@ function StatusBar(
 }
 
 function PlaybackControls(
-  props: StudioSheetProps & { compact?: boolean },
+  props: StudioSheetProps & { compact?: boolean; omitPlay?: boolean },
 ) {
   const isOrrery = props.studioModel === "orrery";
   const loopActive = isOrrery ? props.loopYear : props.loopDay;
@@ -325,17 +347,19 @@ function PlaybackControls(
 
   return (
     <div className="flex shrink-0 items-center gap-1">
-      <Button
-        type="button"
-        size="icon"
-        variant="outline"
-        className="size-10 border-white/10 bg-white/5 text-white hover:bg-white/10"
-        aria-pressed={props.playing}
-        aria-label={props.playing ? "Pause" : "Play"}
-        onClick={() => props.onPlaying(!props.playing)}
-      >
-        {props.playing ? <Pause /> : <Play />}
-      </Button>
+      {!props.omitPlay && (
+        <Button
+          type="button"
+          size="icon"
+          variant="outline"
+          className="size-10 border-white/10 bg-white/5 text-white hover:bg-white/10"
+          aria-pressed={props.playing}
+          aria-label={props.playing ? "Pause" : "Play"}
+          onClick={() => props.onPlaying(!props.playing)}
+        >
+          {props.playing ? <Pause /> : <Play />}
+        </Button>
+      )}
       {!props.compact && (
         <>
           <Button
@@ -394,7 +418,9 @@ function PageDots({
   );
 }
 
-function AstrolabeTimelinePage(props: StudioSheetProps & { tone: ChromeTone }) {
+function AstrolabeTimelinePage(
+  props: StudioSheetProps & { tone: ChromeTone; layout?: "stack" | "rail" },
+) {
   const showNowMarker = useSyncExternalStore(subscribeNoop, () => true, () => false);
   const timeZone = useMemo(
     () => resolveTimeZone(props.latitude, props.longitude),
@@ -434,95 +460,178 @@ function AstrolabeTimelinePage(props: StudioSheetProps & { tone: ChromeTone }) {
     return now.minutes;
   }, [showNowMarker, props.longitude, props.year, props.dayIndex]);
   const minutes = Math.min(Math.max(props.minutes, 0), DAY_MINUTES);
+  const layout = props.layout ?? "stack";
+  const phase = props.showSun ? (
+    <p className="text-xs" style={{ color: phaseLabelColor(props.sun.lightingPhase.id, props.tone) }}>
+      {props.sun.lightingPhase.label}
+    </p>
+  ) : null;
+  const slider = (
+    <Slider
+      min={0}
+      max={DAY_MINUTES}
+      step={0.5}
+      value={[minutes]}
+      onValueChange={([value]) => props.onMinutes(value)}
+      aria-label="Timeline"
+      hideRange
+      trackStyle={trackStyle}
+    />
+  );
+  const sparkline = (
+    <AltitudeSparkline
+      samples={props.samples}
+      minutes={minutes}
+      showSun={props.showSun}
+      showMoon={props.showMoon}
+      tone={props.tone}
+      rangeMinutes={DAY_MINUTES}
+      nowOffset={nowOffset}
+      className={layout === "rail" ? "absolute inset-0 h-full" : undefined}
+    />
+  );
+  const axis = (
+    <div className="flex justify-between px-0.5 font-mono text-[10px] tracking-wide text-white/35">
+      <span>{formatMinutes(0)}</span>
+      <span>{formatMinutes(DAY_MINUTES / 2)}</span>
+      <span>{formatMinutes(0)}</span>
+    </div>
+  );
+  const clockInput = (
+    <Input
+      type="time"
+      value={minutesToTimeValue(props.minutes)}
+      onChange={(event) => {
+        const next = timeValueToMinutes(event.target.value);
+        if (next !== null) props.onMinutes(next);
+      }}
+      className="h-8 w-[7.5rem] border-white/10 bg-white/5 font-mono text-white scheme-dark"
+      aria-label="Clock time"
+    />
+  );
+
+  if (layout === "rail") {
+    return (
+      <section className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_17.5rem] gap-x-6" aria-label="Timeline">
+        <div className="flex min-h-0 min-w-0 flex-col gap-2">
+          <div className="flex shrink-0 items-baseline justify-between gap-3">
+            <SectionLabel>Timeline</SectionLabel>
+            {phase}
+          </div>
+          <div className="shrink-0">{slider}</div>
+          <div className="relative min-h-0 flex-1">{sparkline}</div>
+          <div className="shrink-0">{axis}</div>
+        </div>
+        <div className="flex min-h-0 flex-col justify-center gap-2.5 border-l border-white/10 pl-5">
+          <TimeBadge label={realtime && civilClock ? "wall" : "mean"} value={primaryLabel} />
+          {realtime && civilClock ? (
+            <TimeBadge label="mean solar" value={meanLabel} />
+          ) : civilTime ? (
+            <TimeBadge label="civil" value={civilTime} />
+          ) : null}
+          {clockInput}
+          <PlaybackControls {...props} omitPlay />
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-2" aria-label="Timeline">
       <SectionLabel>Timeline</SectionLabel>
-      {props.showSun && (
-        <p className="text-xs" style={{ color: phaseLabelColor(props.sun.lightingPhase.id, props.tone) }}>
-          {props.sun.lightingPhase.label}
-        </p>
-      )}
-      <Slider
-        min={0}
-        max={DAY_MINUTES}
-        step={0.5}
-        value={[minutes]}
-        onValueChange={([value]) => props.onMinutes(value)}
-        aria-label="Timeline"
-        hideRange
-        trackStyle={trackStyle}
-      />
-      <AltitudeSparkline
-        samples={props.samples}
-        minutes={minutes}
-        showSun={props.showSun}
-        showMoon={props.showMoon}
-        tone={props.tone}
-        rangeMinutes={DAY_MINUTES}
-        nowOffset={nowOffset}
-      />
-      <div className="flex justify-between px-0.5 font-mono text-[10px] tracking-wide text-white/35">
-        <span>{formatMinutes(0)}</span>
-        <span>{formatMinutes(DAY_MINUTES / 2)}</span>
-        <span>{formatMinutes(0)}</span>
-      </div>
+      {phase}
+      {slider}
+      {sparkline}
+      {axis}
       <div className="flex flex-wrap items-center gap-2">
         <TimeBadge label={realtime && civilClock ? "wall" : "mean"} value={primaryLabel} />
-        {meanSolarNote && <TimeBadge label="note" value={meanSolarNote} />}
-        <Input
-          type="time"
-          value={minutesToTimeValue(props.minutes)}
-          onChange={(event) => {
-            const next = timeValueToMinutes(event.target.value);
-            if (next !== null) props.onMinutes(next);
-          }}
-          className="h-8 w-[7.5rem] border-white/10 bg-white/5 font-mono text-white scheme-dark"
-          aria-label="Clock time"
-        />
+        {meanSolarNote ? <TimeBadge label="note" value={meanSolarNote} /> : null}
+        {clockInput}
       </div>
       <CollapsiblePlayback {...props} />
     </section>
   );
 }
 
-function OrreryTimelinePage(props: StudioSheetProps & { tone: ChromeTone }) {
+function OrreryTimelinePage(
+  props: StudioSheetProps & { tone: ChromeTone; layout?: "stack" | "rail" },
+) {
   const minutes = Math.min(Math.max(props.minutes, 0), DAY_MINUTES);
   const meanLabel = formatMinutes(props.minutes);
+  const layout = props.layout ?? "stack";
+  const yearSlider = (
+    <Slider
+      min={0}
+      max={Math.max(0, props.dayCount - 1)}
+      step={1}
+      value={[props.dayIndex]}
+      onValueChange={([value]) => props.onDayIndex(value)}
+      aria-label="Day of year"
+    />
+  );
+  const sparkline = (
+    <OrbitalSparkline
+      samples={props.orbitalSamples}
+      dayIndex={props.dayIndex}
+      dayCount={props.dayCount}
+      tone={props.tone}
+      className={layout === "rail" ? "absolute inset-0 h-full" : undefined}
+    />
+  );
+  const axis = (
+    <div className="flex justify-between px-0.5 font-mono text-[10px] tracking-wide text-white/35">
+      <span>Jan 1</span>
+      <span>Jul 1</span>
+      <span>Dec 31</span>
+    </div>
+  );
+  const timeSlider = (
+    <Slider
+      min={0}
+      max={DAY_MINUTES}
+      step={0.5}
+      value={[minutes]}
+      onValueChange={([value]) => props.onMinutes(value)}
+      aria-label="Time of day"
+      className="min-w-[8rem] flex-1"
+    />
+  );
+
+  if (layout === "rail") {
+    return (
+      <section
+        className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_17.5rem] gap-x-6"
+        aria-label="Orbital timeline"
+      >
+        <div className="flex min-h-0 min-w-0 flex-col gap-2">
+          <div className="shrink-0">
+            <SectionLabel>Orbital year</SectionLabel>
+          </div>
+          <div className="shrink-0">{yearSlider}</div>
+          <div className="relative min-h-0 flex-1">{sparkline}</div>
+          <div className="shrink-0">{axis}</div>
+        </div>
+        <div className="flex min-h-0 flex-col justify-center gap-3 border-l border-white/10 pl-5">
+          <div className="space-y-2">
+            <SectionLabel>Time of day</SectionLabel>
+            <TimeBadge label="time (Moon)" value={meanLabel} />
+            {timeSlider}
+          </div>
+          <PlaybackControls {...props} omitPlay />
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-2" aria-label="Orbital timeline">
       <SectionLabel>Orbital year</SectionLabel>
-      <Slider
-        min={0}
-        max={Math.max(0, props.dayCount - 1)}
-        step={1}
-        value={[props.dayIndex]}
-        onValueChange={([value]) => props.onDayIndex(value)}
-        aria-label="Day of year"
-      />
-      <OrbitalSparkline
-        samples={props.orbitalSamples}
-        dayIndex={props.dayIndex}
-        dayCount={props.dayCount}
-        tone={props.tone}
-      />
-      <div className="flex justify-between px-0.5 font-mono text-[10px] tracking-wide text-white/35">
-        <span>Jan 1</span>
-        <span>Jul 1</span>
-        <span>Dec 31</span>
-      </div>
+      {yearSlider}
+      {sparkline}
+      {axis}
       <div className="flex flex-wrap items-center gap-2">
         <TimeBadge label="time (Moon)" value={meanLabel} />
-        <Slider
-          min={0}
-          max={DAY_MINUTES}
-          step={0.5}
-          value={[minutes]}
-          onValueChange={([value]) => props.onMinutes(value)}
-          aria-label="Time of day"
-          className="min-w-[8rem] flex-1"
-        />
+        {timeSlider}
       </div>
       <CollapsiblePlayback {...props} />
     </section>
