@@ -11,8 +11,6 @@ interface ViewSwitcherProps {
   settingsHref?: string;
   onModel: (model: StudioModel) => void;
   onFullscreen: () => void;
-  /** When true, renders in normal flow (e.g. above the stat rail) instead of fixed top-right. */
-  inline?: boolean;
   className?: string;
 }
 
@@ -22,20 +20,14 @@ export function ViewSwitcher({
   settingsHref = "/settings",
   onModel,
   onFullscreen,
-  inline = false,
   className = "",
 }: ViewSwitcherProps) {
   const sepiaInk = view.theme === "davinci";
 
-  const positionClass = inline
-    ? "relative z-auto flex flex-wrap items-center justify-end gap-1.5"
-    : [
-        "pointer-events-auto fixed inset-x-3 z-40 flex items-center justify-end gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-        "top-[calc(3.25rem+env(safe-area-inset-top,0px))] md:inset-x-4 md:top-[calc(6.25rem+env(safe-area-inset-top,0px))]",
-      ].join(" ");
-
   return (
-    <div className={`${positionClass} ${className}`}>
+    <div
+      className={`pointer-events-auto fixed inset-x-3 top-[calc(0.5rem+env(safe-area-inset-top,0px))] z-40 flex items-center justify-center gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] md:inset-x-4 [&::-webkit-scrollbar]:hidden ${className}`}
+    >
       <div className="flex shrink-0 items-center gap-1">
         <button
           type="button"

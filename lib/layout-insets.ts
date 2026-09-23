@@ -13,8 +13,8 @@ export interface LayoutConfig {
   breakpoint: Breakpoint;
   inspectorState: InspectorState;
   inspectorPinned: boolean;
-  /** Mobile portrait readings strip. Ignored while the inspector covers the frame. */
-  readingsOpen?: boolean;
+  /** Unified studio sheet expanded (uses closed height for scene framing either way). */
+  sheetExpanded?: boolean;
 }
 
 const MD = 768;
@@ -34,23 +34,11 @@ const INSPECTOR_WIDTH = {
   large: 380,
 } as const;
 
-const STAT_RAIL_WIDTH = {
-  desktop: 220,
-  large: 240,
-} as const;
+/** Top chrome: view switcher row + safe area. */
+const TOP_CHROME = 56;
 
-const HUD_TOP = {
-  tablet: 96,
-  desktop: 52,
-  large: 52,
-} as const;
-
-/** iPhone portrait: dynamic island plus one viewfinder bar. */
-const MOBILE_FINDER_TOP = 120;
-/** Finder bar plus the extended readings strip. */
-const MOBILE_EXTENDED_TOP = 300;
-/** View switcher row below the HUD on mobile and tablet. */
-const VIEW_SWITCHER_ROW = 52;
+/** View switcher row at top of page. */
+const VIEW_SWITCHER_ROW = TOP_CHROME;
 
 /** Shared top offset for pinned side panels and chrome (clears window controls). */
 export const STUDIO_CHROME_TOP_CLASS =
@@ -58,9 +46,13 @@ export const STUDIO_CHROME_TOP_CLASS =
 
 const INSPECTOR_PEEK = 72;
 const INSPECTOR_OPEN_RATIO = 0.52;
-/** Collapsed timeline: header row + altitude sparkline + padding. */
-export const TIMELINE_PEEK_HEIGHT = 116;
-const TIMELINE_PEEK = TIMELINE_PEEK_HEIGHT;
+/** Closed studio sheet status bar height. */
+export const STUDIO_SHEET_CLOSED_HEIGHT = 52;
+/** @deprecated Use STUDIO_SHEET_CLOSED_HEIGHT */
+export const TIMELINE_PEEK_HEIGHT = STUDIO_SHEET_CLOSED_HEIGHT;
+/** Max expanded studio sheet height (px). */
+export const STUDIO_SHEET_EXPANDED_MAX = 280;
+const SHEET_CLOSED = STUDIO_SHEET_CLOSED_HEIGHT;
 
 export function computeLayoutInsets(
   width: number,
@@ -69,36 +61,32 @@ export function computeLayoutInsets(
 ): LayoutInsets {
   const { breakpoint, inspectorState, inspectorPinned } = config;
 
+  const top = VIEW_SWITCHER_ROW + 12;
+
   if (breakpoint === "mobile") {
-    const extended = Boolean(config.readingsOpen) && inspectorState === "closed";
-    const top =
-      (extended ? MOBILE_EXTENDED_TOP : MOBILE_FINDER_TOP) + VIEW_SWITCHER_ROW;
-    let bottom = TIMELINE_PEEK + 12;
-    if (inspectorState === "peek") bottom = INSPECTOR_PEEK + TIMELINE_PEEK + 8;
+    let bottom = SHEET_CLOSED + 12;
+    if (inspectorState === "peek") bottom = INSPECTOR_PEEK + SHEET_CLOSED + 8;
     if (inspectorState === "open") {
-      bottom = Math.min(height * INSPECTOR_OPEN_RATIO, 420) + TIMELINE_PEEK + 8;
+      bottom = Math.min(height * INSPECTOR_OPEN_RATIO, 420) + SHEET_CLOSED + 8;
     }
     return { left: 12, right: 12, top, bottom };
   }
 
   if (breakpoint === "tablet") {
-    const top = HUD_TOP.tablet + VIEW_SWITCHER_ROW;
     const left =
       inspectorPinned || inspectorState === "open"
         ? INSPECTOR_WIDTH.tablet + 16
         : 16;
-    return { left, right: 16, top, bottom: TIMELINE_PEEK + 16 };
+    return { left, right: 16, top, bottom: SHEET_CLOSED + 16 };
   }
 
   const inspectorWidth = INSPECTOR_WIDTH[breakpoint];
-  const statWidth = STAT_RAIL_WIDTH[breakpoint === "large" ? "large" : "desktop"];
-  const top = HUD_TOP[breakpoint];
 
   return {
     left: inspectorPinned ? inspectorWidth + 20 : 20,
-    right: statWidth + 24,
+    right: 20,
     top,
-    bottom: TIMELINE_PEEK + 20,
+    bottom: SHEET_CLOSED + 20,
   };
 }
 

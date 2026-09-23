@@ -2,13 +2,13 @@
 
 import dynamic from "next/dynamic";
 import { PanelLeftOpen } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { ControlPanel, StatRail } from "@/components/control-panel";
+import { useMemo, useState } from "react";
+import { ControlPanel } from "@/components/control-panel";
 import { InspectorPanel } from "@/components/inspector-panel";
 import { SceneHud } from "@/components/scene-hud";
 import { GuardedScene } from "@/components/scene-boundary";
 import { SolarMotionProvider } from "@/components/solar-motion";
-import { TimelineSheet } from "@/components/timeline-sheet";
+import { StudioSheet } from "@/components/studio-sheet";
 import { ViewSwitcher } from "@/components/view-switcher";
 import { useInspectorLayout, useLayout } from "@/hooks/use-layout";
 import { useDavinciUnlocked } from "@/hooks/use-davinci-unlock";
@@ -31,12 +31,12 @@ const DavinciView = dynamic(() => import("@/components/davinci-view"), {
 
 const OrreryScene = dynamic(() => import("@/components/orrery-scene"), {
   ssr: false,
-  loading: () => <OrreryPlaceholder />,
+  loading: () => <ScenePlaceholder />,
 });
 
 const DavinciOrreryView = dynamic(() => import("@/components/davinci-orrery-view"), {
   ssr: false,
-  loading: () => <DavinciPlaceholder />,
+  loading: () => <ScenePlaceholder />,
 });
 
 export function SolarStudio({ initial }: { initial?: ParsedView }) {
@@ -60,7 +60,6 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     studioModel,
     studioTheme,
     setStudioModel,
-    setStudioTheme,
     focusPlanet,
     setFocusPlanet,
     visiblePlanets,
@@ -102,17 +101,14 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   const [orreryMounted, setOrreryMounted] = useState(
     () => initial?.model === "orrery",
   );
-  const [readingsOpen, setReadingsOpen] = useState(false);
   const davinciUnlocked = useDavinciUnlocked();
   const view = resolveStudioView(studioModel, studioTheme, davinciUnlocked);
   const realtime =
     view.model === "orrery" ? orrerySpeed.realtime : astrolabeSpeed.realtime;
 
-  useEffect(() => {
-    if (studioTheme === "davinci" && davinciUnlocked) {
-      setDavinciMounted(true);
-    }
-  }, [studioTheme, davinciUnlocked]);
+  if (studioTheme === "davinci" && davinciUnlocked && !davinciMounted) {
+    setDavinciMounted(true);
+  }
 
   const {
     breakpoint,
@@ -124,7 +120,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     closeInspector,
   } = useInspectorLayout();
 
-  const { insets } = useLayout(inspectorState, inspectorPinned, readingsOpen);
+  const { insets } = useLayout(inspectorState, inspectorPinned);
   const sceneInsets = useMemo(
     () =>
       fullscreen
@@ -338,32 +334,13 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
         className="pointer-events-none absolute inset-0 z-20"
       >
       <SceneHud
-          breakpoint={breakpoint}
-          studioModel={view.model}
-          model={model}
-          orreryModel={orreryModel}
-          focusPlanet={focusPlanet}
-          moonModel={moonModel}
-          sun={sun}
-          moon={moon}
-          latitude={latitude}
-          longitude={longitude}
-          minutes={minutes}
-          realtime={realtime}
-          playing={playing}
-          showSun={showSun}
-          showMoon={showMoon}
           inspectorOpen={inspectorOpen}
           variant={fullscreen ? "minimal" : "full"}
           desktopChrome={showStudioChrome && showDesktopRail}
           layoutInsets={insets}
           tone={parchment ? "parchment" : "night"}
-          onMinutes={seekMinutes}
-          onPlaying={setPlayback}
           onResetView={bumpResetSignal}
           onToggleInspector={toggleInspector}
-          readingsOpen={readingsOpen}
-          onReadings={setReadingsOpen}
         />
 
       {showStudioChrome && showPinnedInspector && (
@@ -388,33 +365,14 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
         />
       )}
 
-      {showStudioChrome && showDesktopRail && (
-        <div
-          className={`pointer-events-none absolute ${STUDIO_CHROME_TOP_CLASS} right-3 bottom-3 z-30 hidden w-[min(220px,calc(100vw-30rem))] flex-col gap-2 lg:flex 2xl:w-[240px]`}
-        >
-          <ViewSwitcher
-            inline
-            view={view}
-            fullscreen={fullscreen}
-            settingsHref={settingsHref}
-            onModel={handleModel}
-            onFullscreen={() => setFullscreen((value) => !value)}
-            className="pointer-events-auto shrink-0"
-          />
-          <StatRail
-            studioModel={view.model}
-            model={model}
-            orreryModel={orreryModel}
-            focusPlanet={focusPlanet}
-            moonModel={moonModel}
-            sun={sun}
-            moon={moon}
-            longitude={longitude}
-            showSun={showSun}
-            showMoon={showMoon}
-            onMinutes={seekMinutes}
-          />
-        </div>
+      {showStudioChrome && (
+        <ViewSwitcher
+          view={view}
+          fullscreen={fullscreen}
+          settingsHref={settingsHref}
+          onModel={handleModel}
+          onFullscreen={() => setFullscreen((value) => !value)}
+        />
       )}
 
       {showStudioChrome &&
@@ -432,42 +390,41 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
         )}
       </div>
 
-      <TimelineSheet
-        studioModel={view.model}
-        playing={playing}
-        loopDay={loopDay}
-        loopYear={loopYear}
-        astrolabeSpeed={astrolabeSpeed}
-        orrerySpeed={orrerySpeed}
-        samples={samples}
-        orbitalSamples={orbitalSamples}
-        times={model.times}
-        sun={sun}
-        showSun={showSun}
-        showMoon={showMoon}
-        latitude={latitude}
-        longitude={longitude}
-        year={year}
-        dayIndex={dayIndex}
-        dayCount={dayCount}
-        minutes={minutes}
-        tone={parchment ? "parchment" : "night"}
-        onMinutes={seekMinutes}
-        onDayIndex={(value) => seekDate(year, value)}
-        onPlaying={setPlayback}
-        onLoopDay={setDayLoop}
-        onLoopYear={setYearLoop}
-        onAstrolabeSpeed={setAstrolabeSpeed}
-        onOrrerySpeed={setOrrerySpeed}
-      />
-
-      {(!showStudioChrome || !showDesktopRail) && (
-        <ViewSwitcher
-          view={view}
-          fullscreen={fullscreen}
-          settingsHref={settingsHref}
-          onModel={handleModel}
-          onFullscreen={() => setFullscreen((value) => !value)}
+      {showStudioChrome && (
+        <StudioSheet
+          studioModel={view.model}
+          playing={playing}
+          loopDay={loopDay}
+          loopYear={loopYear}
+          astrolabeSpeed={astrolabeSpeed}
+          orrerySpeed={orrerySpeed}
+          samples={samples}
+          orbitalSamples={orbitalSamples}
+          times={model.times}
+          model={model}
+          orreryModel={orreryModel}
+          focusPlanet={focusPlanet}
+          moonModel={moonModel}
+          sun={sun}
+          moon={moon}
+          showSun={showSun}
+          showMoon={showMoon}
+          latitude={latitude}
+          longitude={longitude}
+          year={year}
+          dayIndex={dayIndex}
+          dayCount={dayCount}
+          minutes={minutes}
+          realtime={realtime}
+          tone={parchment ? "parchment" : "night"}
+          onMinutes={seekMinutes}
+          onDayIndex={(value) => seekDate(year, value)}
+          onPlaying={setPlayback}
+          onLoopDay={setDayLoop}
+          onLoopYear={setYearLoop}
+          onAstrolabeSpeed={setAstrolabeSpeed}
+          onOrrerySpeed={setOrrerySpeed}
+          onResetView={bumpResetSignal}
         />
       )}
 
@@ -498,19 +455,6 @@ function ScenePlaceholder() {
         <div className="mx-auto size-10 animate-pulse rounded-full bg-[#f0b429] shadow-[0_0_32px_rgba(240,180,41,0.8)] motion-reduce:animate-none" />
         <p className="mt-4 text-sm tracking-[0.18em] text-white/50 uppercase">
           Charting the sky
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function OrreryPlaceholder() {
-  return (
-    <div className="flex h-full w-full items-center justify-center bg-[#07080d]">
-      <div className="text-center">
-        <div className="mx-auto size-10 animate-pulse rounded-full bg-[#f0b429] shadow-[0_0_32px_rgba(240,180,41,0.8)] motion-reduce:animate-none" />
-        <p className="mt-4 text-sm tracking-[0.18em] text-white/50 uppercase">
-          Charting the orrery
         </p>
       </div>
     </div>
