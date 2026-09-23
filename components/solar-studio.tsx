@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { PanelLeftOpen } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ControlPanel } from "@/components/control-panel";
 import { InspectorPanel } from "@/components/inspector-panel";
 import { SceneHud } from "@/components/scene-hud";
@@ -106,11 +106,9 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   const realtime =
     view.model === "orrery" ? orrerySpeed.realtime : astrolabeSpeed.realtime;
 
-  useEffect(() => {
-    if (studioTheme === "davinci" && davinciUnlocked) {
-      setDavinciMounted(true);
-    }
-  }, [studioTheme, davinciUnlocked]);
+  if (studioTheme === "davinci" && davinciUnlocked && !davinciMounted) {
+    setDavinciMounted(true);
+  }
 
   const {
     breakpoint,
