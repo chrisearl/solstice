@@ -36,9 +36,9 @@ export const MOON_ARC_COLOR = "#b8c9de";
 
 /** Tight dotted stroke for the moon path above the horizon. */
 export const MOON_ARC_DOT = {
-  dashSize: 0.055,
-  gapSize: 0.07,
-  fadeFraction: 0.14,
+  dashSize: 0.042,
+  gapSize: 0.052,
+  fadeFraction: 0.24,
 } as const;
 
 export const ORLANDO = { name: "Orlando, FL", lat: 28.5383, lng: -81.3792 };
