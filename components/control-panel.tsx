@@ -839,8 +839,8 @@ function Legend({
                   }
                   style={
                     arc.emphasized
-                      ? { background: arc.color, boxShadow: `0 0 8px ${arc.color}` }
-                      : { borderColor: arc.color, opacity: 0.7 }
+                      ? { background: arc.color, boxShadow: `0 0 10px ${arc.color}` }
+                      : { borderColor: arc.color, opacity: 0.42 }
                   }
                 />
                 {arc.label}
@@ -852,10 +852,11 @@ function Legend({
           <li className="flex items-center justify-between gap-3 text-sm">
             <span className="flex items-center gap-2 text-white/80">
               <span
-                className="h-[3px] w-6 rounded-full"
+                className="h-[2px] w-6 rounded-full"
                 style={{
                   background: MOON_ARC_COLOR,
-                  boxShadow: `0 0 8px ${MOON_ARC_COLOR}`,
+                  boxShadow: `0 0 6px ${MOON_ARC_COLOR}88`,
+                  opacity: 0.82,
                 }}
               />
               Moon path

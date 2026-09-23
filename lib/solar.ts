@@ -36,13 +36,52 @@ export const ARC_COLORS = {
   selected: "#ffe38a",
 } as const;
 
-export const MOON_ARC_COLOR = "#b8c9de";
+/** Muted seasonal colors for reference sun paths that are not the active day. */
+export const ARC_COLORS_QUIET = {
+  summer: "#8f6848",
+  winter: "#5a788f",
+  equinox: "#8a837a",
+} as const;
+
+export const MOON_ARC_COLOR = "#a8b8cc";
+
+/** Stroke weight and color prominence: reference thinnest, moon mid, selected sun thickest. */
+export const ARC_HIERARCHY = {
+  reference: {
+    lineWidth: 0.8,
+    underLineWidth: 0.65,
+    opacity: 0.24,
+    underOpacity: 0.11,
+    labelOpacity: 0.38,
+  },
+  moon: {
+    lineWidth: 1.15,
+    underLineWidth: 0.75,
+    opacity: 0.68,
+    underOpacity: 0.13,
+    labelOpacity: 0.76,
+  },
+  selected: {
+    tubeRadius: 0.036,
+    glowRadius: 0.082,
+    underTubeRadius: 0.012,
+    opacity: 1,
+    underOpacity: 0.32,
+    glowOpacity: 0.2,
+    labelOpacity: 1,
+  },
+  davinci: {
+    reference: { lineWidth: 0.85, opacity: 0.28 },
+    moon: { lineWidth: 1.18, opacity: 0.62 },
+    selected: { lineWidth: 2.45, opacity: 0.97 },
+  },
+} as const;
 
 /** Tight dotted stroke for the moon path above the horizon. */
 export const MOON_ARC_DOT = {
-  dashSize: 0.055,
-  gapSize: 0.07,
-  fadeFraction: 0.14,
+  dashSize: 0.042,
+  gapSize: 0.052,
+  fadeFraction: 0.24,
 } as const;
 
 export const ORLANDO = { name: "Orlando, FL", lat: 28.5383, lng: -81.3792 };
@@ -559,6 +598,13 @@ function samePath(a: Vec3, b: Vec3): boolean {
   return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < MERGE_DISTANCE;
 }
 
+function quietArcColor(id: SolarArc["id"], color: string): string {
+  if (id === "summer") return ARC_COLORS_QUIET.summer;
+  if (id === "winter") return ARC_COLORS_QUIET.winter;
+  if (id === "equinox") return ARC_COLORS_QUIET.equinox;
+  return color;
+}
+
 function makeArc(
   id: SolarArc["id"],
   label: string,
@@ -574,7 +620,7 @@ function makeArc(
     id,
     label,
     detail,
-    color,
+    color: emphasized ? color : quietArcColor(id, color),
     points: path.points,
     closed: path.closed,
     underPoints: path.underPoints,

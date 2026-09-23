@@ -25,6 +25,7 @@ import {
 import type { LayoutInsets } from "@/lib/layout-insets";
 import { DAVINCI_DISC_FILL_OPACITY, davinciDiscFillColor } from "@/lib/light";
 import {
+  ARC_HIERARCHY,
   DISC_RADIUS,
   GNOMON_HEIGHT,
   MOON_ARC_DOT,
@@ -632,19 +633,21 @@ function InkFadedDottedStroke({
 }
 
 function strokeStyle(variant: SolarArc["id"] | "moon", emphasized: boolean) {
+  const { reference, moon, selected } = ARC_HIERARCHY.davinci;
+
   if (variant === "moon") {
     return {
-      lineWidth: 1.35,
-      opacity: 0.82,
+      lineWidth: moon.lineWidth,
+      opacity: moon.opacity,
       dashed: true,
       dashSize: MOON_ARC_DOT.dashSize,
       gapSize: MOON_ARC_DOT.gapSize,
     };
   }
   if (variant === "selected" || emphasized) {
-    return { lineWidth: 2.2, opacity: 0.95, dashed: false, dashSize: 0.18, gapSize: 0.1 };
+    return { lineWidth: selected.lineWidth, opacity: selected.opacity, dashed: false, dashSize: 0.18, gapSize: 0.1 };
   }
-  return { lineWidth: 1.05, opacity: 0.4, dashed: true, dashSize: 0.24, gapSize: 0.18 };
+  return { lineWidth: reference.lineWidth, opacity: reference.opacity, dashed: true, dashSize: 0.24, gapSize: 0.18 };
 }
 
 function horizonArc(start: number, sweep: number, radius: number): Vec3[] {
