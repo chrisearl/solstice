@@ -16,9 +16,8 @@ interface ViewSwitcherProps {
 }
 
 function toggleClass(parchment: boolean, active: boolean): string {
-  const base = parchment
-    ? "flex h-11 items-center gap-2 rounded-full border px-3.5 shadow-lg backdrop-blur-md focus-visible:outline-none focus-visible:ring-2"
-    : "flex h-11 items-center gap-2 rounded-full border px-3.5 shadow-lg backdrop-blur-md focus-visible:outline-none focus-visible:ring-2";
+  const base =
+    "flex h-11 shrink-0 items-center gap-2 rounded-full border px-3.5 shadow-lg backdrop-blur-md focus-visible:outline-none focus-visible:ring-2";
   if (parchment) {
     return active
       ? `${base} border-[#5c3b1e]/60 bg-[#e8d4b4] text-[#3a2310] shadow-[#422d1b]/20 focus-visible:ring-[#5c3b1e]`
@@ -43,11 +42,14 @@ export function ViewSwitcher({
 
   const positionClass = inline
     ? "relative z-auto flex flex-wrap items-center justify-end gap-1.5"
-    : "pointer-events-auto fixed top-[calc(0.75rem+env(safe-area-inset-top,0px))] right-3 z-50 flex flex-wrap items-center justify-end gap-1.5 md:right-4 lg:right-5";
+    : [
+        "pointer-events-auto fixed inset-x-3 z-40 flex items-center justify-end gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        "top-[calc(3.25rem+env(safe-area-inset-top,0px))] md:inset-x-4 md:top-[calc(6.25rem+env(safe-area-inset-top,0px))]",
+      ].join(" ");
 
   return (
     <div className={`${positionClass} ${className}`}>
-      <div className="flex items-center gap-1">
+      <div className="flex shrink-0 items-center gap-1">
         <button
           type="button"
           aria-label="Switch to astrolabe view"
@@ -71,7 +73,7 @@ export function ViewSwitcher({
       </div>
 
       {davinciUnlocked && (
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
             aria-label="Switch to night sky theme"
@@ -101,8 +103,8 @@ export function ViewSwitcher({
         onClick={onFullscreen}
         className={
           parchment
-            ? "flex size-11 items-center justify-center rounded-full border border-[#9b764b]/50 bg-[#f4e8d1]/92 text-[#3a2310] shadow-lg shadow-[#422d1b]/20 backdrop-blur-md hover:bg-[#efe2cc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c3b1e]"
-            : "flex size-11 items-center justify-center rounded-full border border-white/10 bg-black/55 text-white shadow-lg shadow-black/30 backdrop-blur-md hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f0b429]"
+            ? "flex size-11 shrink-0 items-center justify-center rounded-full border border-[#9b764b]/50 bg-[#f4e8d1]/92 text-[#3a2310] shadow-lg shadow-[#422d1b]/20 backdrop-blur-md hover:bg-[#efe2cc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c3b1e]"
+            : "flex size-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/55 text-white shadow-lg shadow-black/30 backdrop-blur-md hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f0b429]"
         }
       >
         {fullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}

@@ -49,6 +49,8 @@ const HUD_TOP = {
 const MOBILE_FINDER_TOP = 120;
 /** Finder bar plus the extended readings strip. */
 const MOBILE_EXTENDED_TOP = 300;
+/** View switcher row below the HUD on mobile and tablet. */
+const VIEW_SWITCHER_ROW = 52;
 
 /** Shared top offset for pinned side panels and chrome (clears window controls). */
 export const STUDIO_CHROME_TOP_CLASS =
@@ -69,7 +71,8 @@ export function computeLayoutInsets(
 
   if (breakpoint === "mobile") {
     const extended = Boolean(config.readingsOpen) && inspectorState === "closed";
-    const top = extended ? MOBILE_EXTENDED_TOP : MOBILE_FINDER_TOP;
+    const top =
+      (extended ? MOBILE_EXTENDED_TOP : MOBILE_FINDER_TOP) + VIEW_SWITCHER_ROW;
     let bottom = TIMELINE_PEEK + 12;
     if (inspectorState === "peek") bottom = INSPECTOR_PEEK + TIMELINE_PEEK + 8;
     if (inspectorState === "open") {
@@ -79,7 +82,7 @@ export function computeLayoutInsets(
   }
 
   if (breakpoint === "tablet") {
-    const top = HUD_TOP.tablet;
+    const top = HUD_TOP.tablet + VIEW_SWITCHER_ROW;
     const left =
       inspectorPinned || inspectorState === "open"
         ? INSPECTOR_WIDTH.tablet + 16
