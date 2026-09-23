@@ -323,8 +323,9 @@ function InkOrb({
       uPaperColor: { value: new THREE.Color(PAPER) },
       uHatchDensity: { value: DAVINCI_HATCH_DENSITY },
       uLineWeight: { value: DAVINCI_HATCH_WEIGHT },
+      uIsLightSource: { value: track === "sun" ? 1 : 0 },
     }),
-    [],
+    [track],
   );
 
   const apply = (nextSun: SunPlacement, nextMoon: MoonPlacement) => {
@@ -341,13 +342,13 @@ function InkOrb({
           : 0.3;
     mesh.current?.position.set(position.x, position.y, position.z);
     mesh.current?.scale.setScalar(radius);
-    const light =
-      track === "sun"
-        ? rakeFromBearing(nextSun.position)
-        : lightFromSun(nextMoon.position, nextSun.position);
     const shader = material.current;
     if (!shader) return;
-    shader.uniforms.uLightDirection.value.copy(light);
+    if (track === "moon") {
+      shader.uniforms.uLightDirection.value.copy(
+        lightFromSun(nextMoon.position, nextSun.position),
+      );
+    }
     shader.uniforms.uHatchDensity.value = DAVINCI_HATCH_DENSITY;
     shader.uniforms.uLineWeight.value = DAVINCI_HATCH_WEIGHT;
   };
@@ -476,18 +477,15 @@ function radial(azimuth: number, inner: number, outer: number): Vec3[] {
   ];
 }
 
-/** Rake across the sun's real bearing so the orb shows a hatched terminator. */
-function rakeFromBearing(sun: Vec3) {
-  const bearing = new THREE.Vector3(sun.x, 0, sun.z);
-  if (bearing.lengthSq() < 1e-6) bearing.set(0, 0, 1);
-  bearing.normalize();
-  return new THREE.Vector3(-bearing.z, 0.55, bearing.x).normalize();
-}
-
-/** Moon hatch follows the real sun. A coincident sun falls back to the sun's bearing. */
+/** Moon hatch follows the real sun. A coincident sun falls back to a stable rake. */
 function lightFromSun(body: Vec3, sun: Vec3) {
   const delta = new THREE.Vector3(sun.x - body.x, sun.y - body.y, sun.z - body.z);
-  if (delta.lengthSq() < 0.04) return rakeFromBearing(sun);
+  if (delta.lengthSq() < 0.04) {
+    const bearing = new THREE.Vector3(sun.x, 0, sun.z);
+    if (bearing.lengthSq() < 1e-6) bearing.set(0, 0, 1);
+    bearing.normalize();
+    return new THREE.Vector3(-bearing.z, 0.55, bearing.x).normalize();
+  }
   return delta.normalize();
 }
 
