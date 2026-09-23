@@ -24,6 +24,8 @@ import {
 } from "@/lib/davinci-shader";
 import type { LayoutInsets } from "@/lib/layout-insets";
 import {
+  DISC_FILL_COLOR,
+  DISC_FILL_OPACITY,
   DISC_RADIUS,
   GNOMON_HEIGHT,
   SKY_RADIUS,
@@ -179,6 +181,16 @@ function InkCompass() {
 
   return (
     <group>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.011, 0]} renderOrder={2}>
+        <circleGeometry args={[DISC_RADIUS, 128]} />
+        <meshBasicMaterial
+          color={DISC_FILL_COLOR}
+          transparent
+          opacity={DISC_FILL_OPACITY}
+          toneMapped={false}
+          depthWrite={false}
+        />
+      </mesh>
       <InkRing radius={DISC_RADIUS} y={0.02} lineWidth={1.8} opacity={0.92} />
       <InkRing radius={SKY_RADIUS} y={0.025} lineWidth={1.15} opacity={0.55} />
       <Line
