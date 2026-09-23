@@ -42,18 +42,21 @@ export type DavinciOrrerySceneProps = OrrerySceneProps;
 export function DavinciOrreryScene(props: DavinciOrrerySceneProps) {
   return (
     <Canvas
-      className="absolute inset-0"
+      className="absolute inset-0 z-[1]"
       camera={{ position: [0, 14, 18], fov: 38, near: 0.1, far: 400 }}
       dpr={[1, 2]}
       frameloop={props.active ? "always" : "never"}
-      gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+      gl={{
+        antialias: true,
+        alpha: true,
+        powerPreference: "high-performance",
+      }}
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.NoToneMapping;
-        gl.setClearColor(PAPER);
+        gl.setClearColor(0x000000, 0);
         watchContextLoss(gl.domElement, props.onContextLost);
       }}
     >
-      <color attach="background" args={[PAPER]} />
       <InkOrreryInstrument {...props} />
     </Canvas>
   );
