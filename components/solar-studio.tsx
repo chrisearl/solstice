@@ -3,12 +3,12 @@
 import dynamic from "next/dynamic";
 import { PanelLeftOpen } from "lucide-react";
 import { useMemo, useState } from "react";
-import { ControlPanel, StatRail } from "@/components/control-panel";
+import { ControlPanel } from "@/components/control-panel";
 import { InspectorPanel } from "@/components/inspector-panel";
 import { SceneHud } from "@/components/scene-hud";
 import { GuardedScene } from "@/components/scene-boundary";
 import { SolarMotionProvider } from "@/components/solar-motion";
-import { TimelineSheet } from "@/components/timeline-sheet";
+import { StudioSheet } from "@/components/studio-sheet";
 import { ViewSwitcher } from "@/components/view-switcher";
 import { useDavinciUnlock } from "@/hooks/use-davinci-unlock";
 import { useInspectorLayout, useLayout } from "@/hooks/use-layout";
@@ -102,7 +102,6 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   const [orreryMounted, setOrreryMounted] = useState(
     () => initial?.model === "orrery",
   );
-  const [readingsOpen, setReadingsOpen] = useState(false);
   const { davinciUnlocked } = useDavinciUnlock();
   const view = resolveStudioView(studioModel, studioTheme, davinciUnlocked);
 
@@ -116,7 +115,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     closeInspector,
   } = useInspectorLayout();
 
-  const { insets } = useLayout(inspectorState, inspectorPinned, readingsOpen);
+  const { insets } = useLayout(inspectorState, inspectorPinned);
   const sceneInsets = useMemo(
     () =>
       fullscreen
@@ -322,31 +321,13 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
         className="pointer-events-none absolute inset-0 z-20"
       >
       <SceneHud
-          breakpoint={breakpoint}
-          studioModel={view.model}
-          model={model}
-          orreryModel={orreryModel}
-          focusPlanet={focusPlanet}
-          moonModel={moonModel}
-          sun={sun}
-          moon={moon}
-          latitude={latitude}
-          longitude={longitude}
-          minutes={minutes}
-          playing={playing}
-          showSun={showSun}
-          showMoon={showMoon}
           inspectorOpen={inspectorOpen}
           variant={fullscreen ? "minimal" : "full"}
           desktopChrome={showStudioChrome && showDesktopRail}
           layoutInsets={insets}
           tone={parchment ? "parchment" : "night"}
-          onMinutes={seekMinutes}
-          onPlaying={setPlayback}
           onResetView={bumpResetSignal}
           onToggleInspector={toggleInspector}
-          readingsOpen={readingsOpen}
-          onReadings={setReadingsOpen}
         />
 
       {showStudioChrome && showPinnedInspector && (
@@ -371,34 +352,15 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
         />
       )}
 
-      {showStudioChrome && showDesktopRail && (
-        <div
-          className={`pointer-events-none absolute ${STUDIO_CHROME_TOP_CLASS} right-3 bottom-3 z-30 hidden w-[min(220px,calc(100vw-30rem))] flex-col gap-2 lg:flex 2xl:w-[240px]`}
-        >
-          <ViewSwitcher
-            inline
-            view={view}
-            fullscreen={fullscreen}
-            davinciUnlocked={davinciUnlocked}
-            onModel={handleModel}
-            onTheme={handleTheme}
-            onFullscreen={() => setFullscreen((value) => !value)}
-            className="pointer-events-auto shrink-0"
-          />
-          <StatRail
-            studioModel={view.model}
-            model={model}
-            orreryModel={orreryModel}
-            focusPlanet={focusPlanet}
-            moonModel={moonModel}
-            sun={sun}
-            moon={moon}
-            longitude={longitude}
-            showSun={showSun}
-            showMoon={showMoon}
-            onMinutes={seekMinutes}
-          />
-        </div>
+      {showStudioChrome && (
+        <ViewSwitcher
+          view={view}
+          fullscreen={fullscreen}
+          davinciUnlocked={davinciUnlocked}
+          onModel={handleModel}
+          onTheme={handleTheme}
+          onFullscreen={() => setFullscreen((value) => !value)}
+        />
       )}
 
       {showStudioChrome &&
@@ -416,43 +378,40 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
         )}
       </div>
 
-      <TimelineSheet
-        studioModel={view.model}
-        playing={playing}
-        loopDay={loopDay}
-        loopYear={loopYear}
-        astrolabeSpeed={astrolabeSpeed}
-        orrerySpeed={orrerySpeed}
-        samples={samples}
-        orbitalSamples={orbitalSamples}
-        times={model.times}
-        sun={sun}
-        showSun={showSun}
-        showMoon={showMoon}
-        latitude={latitude}
-        longitude={longitude}
-        year={year}
-        dayIndex={dayIndex}
-        dayCount={dayCount}
-        minutes={minutes}
-        tone={parchment ? "parchment" : "night"}
-        onMinutes={seekMinutes}
-        onDayIndex={(value) => seekDate(year, value)}
-        onPlaying={setPlayback}
-        onLoopDay={setDayLoop}
-        onLoopYear={setYearLoop}
-        onAstrolabeSpeed={setAstrolabeSpeed}
-        onOrrerySpeed={setOrrerySpeed}
-      />
-
-      {(!showStudioChrome || !showDesktopRail) && (
-        <ViewSwitcher
-          view={view}
-          fullscreen={fullscreen}
-          davinciUnlocked={davinciUnlocked}
-          onModel={handleModel}
-          onTheme={handleTheme}
-          onFullscreen={() => setFullscreen((value) => !value)}
+      {showStudioChrome && (
+        <StudioSheet
+          studioModel={view.model}
+          playing={playing}
+          loopDay={loopDay}
+          loopYear={loopYear}
+          astrolabeSpeed={astrolabeSpeed}
+          orrerySpeed={orrerySpeed}
+          samples={samples}
+          orbitalSamples={orbitalSamples}
+          times={model.times}
+          model={model}
+          orreryModel={orreryModel}
+          focusPlanet={focusPlanet}
+          moonModel={moonModel}
+          sun={sun}
+          moon={moon}
+          showSun={showSun}
+          showMoon={showMoon}
+          latitude={latitude}
+          longitude={longitude}
+          year={year}
+          dayIndex={dayIndex}
+          dayCount={dayCount}
+          minutes={minutes}
+          tone={parchment ? "parchment" : "night"}
+          onMinutes={seekMinutes}
+          onDayIndex={(value) => seekDate(year, value)}
+          onPlaying={setPlayback}
+          onLoopDay={setDayLoop}
+          onLoopYear={setYearLoop}
+          onAstrolabeSpeed={setAstrolabeSpeed}
+          onOrrerySpeed={setOrrerySpeed}
+          onResetView={bumpResetSignal}
         />
       )}
 
