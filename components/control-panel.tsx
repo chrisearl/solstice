@@ -16,15 +16,26 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import {
   coordinateStatus,
+  formatAu,
   formatAzimuth,
   formatDegrees,
   formatDuration,
+  formatEarthSeason,
   formatLongDate,
   formatMeanTime,
+  formatOrbitalPhase,
   formatShadow,
   isoFromDate,
   locationLabel,
 } from "@/lib/format";
+import {
+  ALL_PLANET_IDS,
+  bodyById,
+  PLANET_NAMES,
+  type OrreryModel,
+  type PlanetId,
+} from "@/lib/orrery";
+import type { StudioModel } from "@/lib/studio-view";
 import {
   PRESETS,
   seekMinute,
@@ -38,8 +49,12 @@ import {
   type SunPlacement,
 } from "@/lib/solar";
 
-interface ControlPanelProps {
+export interface ControlPanelProps {
+  studioModel: StudioModel;
   model: SolarModel;
+  orreryModel: OrreryModel;
+  focusPlanet: PlanetId | "moon";
+  visiblePlanets: ReadonlySet<PlanetId>;
   moonModel: MoonModel;
   moon: MoonPlacement;
   latitude: number;
@@ -63,11 +78,17 @@ interface ControlPanelProps {
   onMinutes: (value: number) => void;
   onShowSun: (value: boolean) => void;
   onShowMoon: (value: boolean) => void;
+  onFocusPlanet: (id: PlanetId | "moon") => void;
+  onTogglePlanet: (id: PlanetId) => void;
   onResetView: () => void;
   onResetPlace: () => void;
 }
 
 export function ControlPanel(props: ControlPanelProps) {
+  if (props.studioModel === "orrery") {
+    return <OrreryControlPanel {...props} />;
+  }
+
   const latState = coordinateStatus(props.latText, -90, 90);
   const lngState = coordinateStatus(props.lngText, -180, 180);
 
@@ -234,8 +255,144 @@ export function ControlPanel(props: ControlPanelProps) {
   );
 }
 
+function OrreryControlPanel(props: ControlPanelProps) {
+  const focusBody =
+    bodyById(props.orreryModel, props.focusPlanet) ?? bodyById(props.orreryModel, "earth");
+
+  return (
+    <section className="flex flex-col gap-4">
+      {!props.compactHeader ? (
+        <header className="flex items-start justify-between gap-3">
+          <div>
+            <p className="font-display text-3xl leading-none tracking-tight text-[#f6f1e7]">
+              Orrery
+            </p>
+            <p className="mt-1 text-sm text-white/55">Classic heliocentric model</p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+            onClick={props.onResetView}
+            aria-label="Reset camera"
+          >
+            <RotateCcw />
+          </Button>
+        </header>
+      ) : (
+        <header className="mb-1 border-b border-white/8 pb-3">
+          <p className="font-display text-xl leading-none tracking-tight text-[#f6f1e7]">Orrery</p>
+          <p className="mt-1 text-xs text-white/50">Heliocentric model · log scale</p>
+        </header>
+      )}
+
+      <div className="space-y-2">
+        <Label>Focus planet</Label>
+        <div className="flex flex-wrap gap-1.5">
+          {[...ALL_PLANET_IDS, "moon" as const].map((id) => {
+            const active = props.focusPlanet === id;
+            const label = id === "moon" ? "Moon" : PLANET_NAMES[id];
+            return (
+              <Button
+                key={id}
+                type="button"
+                size="xs"
+                variant={active ? "default" : "outline"}
+                className={
+                  active
+                    ? "bg-[#f0b429] text-[#1b1406] hover:bg-[#f0b429]/90"
+                    : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10"
+                }
+                onClick={() => props.onFocusPlanet(id)}
+              >
+                {label}
+              </Button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Planet visibility</Label>
+        <div className="flex flex-wrap gap-1.5">
+          {ALL_PLANET_IDS.map((id) => {
+            const active = props.visiblePlanets.has(id);
+            return (
+              <Button
+                key={id}
+                type="button"
+                size="xs"
+                variant={active ? "default" : "outline"}
+                className={
+                  active
+                    ? "bg-white/15 text-white hover:bg-white/20"
+                    : "border-white/10 bg-white/5 text-white/45 hover:bg-white/10"
+                }
+                onClick={() => props.onTogglePlanet(id)}
+              >
+                {PLANET_NAMES[id]}
+              </Button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-end justify-between gap-3">
+          <Label>Date</Label>
+          <p className="text-right font-mono text-xs text-[#f0b429]">
+            {formatLongDate(props.model.date)}
+          </p>
+        </div>
+        <Slider
+          min={0}
+          max={Math.max(props.dayCount - 1, 0)}
+          step={1}
+          value={[props.dayIndex]}
+          onValueChange={([value]) => props.onDayIndex(value)}
+          aria-label="Day of year"
+        />
+        <Input
+          type="date"
+          min="1900-01-01"
+          max="2100-12-31"
+          value={isoFromDate(props.model.date)}
+          onChange={(event) => props.onDate(event.target.value)}
+          className="h-8 border-white/10 bg-white/5 font-mono text-white scheme-dark"
+          aria-label="Pick a date"
+        />
+      </div>
+
+      {focusBody && (
+        <div className="space-y-2 border-t border-white/10 pt-3 text-sm text-white/70">
+          <p>
+            <span className="text-white/45">Longitude </span>
+            {formatDegrees(focusBody.heliocentricLongitudeDeg)}
+          </p>
+          <p>
+            <span className="text-white/45">Distance </span>
+            {formatAu(focusBody.distanceAu)}
+          </p>
+          <p>
+            <span className="text-white/45">Orbit </span>
+            {formatOrbitalPhase(focusBody.orbitalPhase)}
+          </p>
+          <p>
+            <span className="text-white/45">Season </span>
+            {formatEarthSeason(props.orreryModel.earthSeason)}
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function StatRail({
+  studioModel,
   model,
+  orreryModel,
+  focusPlanet,
   moonModel,
   sun,
   moon,
@@ -244,7 +401,10 @@ export function StatRail({
   showMoon,
   onMinutes,
 }: {
+  studioModel: StudioModel;
   model: SolarModel;
+  orreryModel: OrreryModel;
+  focusPlanet: PlanetId | "moon";
   moonModel: MoonModel;
   sun: SunPlacement;
   moon: MoonPlacement;
@@ -253,6 +413,39 @@ export function StatRail({
   showMoon: boolean;
   onMinutes: (value: number) => void;
 }) {
+  if (studioModel === "orrery") {
+    const focusBody = bodyById(orreryModel, focusPlanet) ?? bodyById(orreryModel, "earth");
+    if (!focusBody) return null;
+    return (
+      <aside className="pointer-events-auto flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+        <Stat
+          icon={<Compass />}
+          label="Longitude"
+          value={formatDegrees(focusBody.heliocentricLongitudeDeg)}
+          hint={focusBody.name}
+        />
+        <Stat
+          icon={<SunMedium />}
+          label="Distance"
+          value={formatAu(focusBody.distanceAu)}
+          hint="From the Sun"
+        />
+        <Stat
+          icon={<Sparkles />}
+          label="Orbit"
+          value={formatOrbitalPhase(focusBody.orbitalPhase)}
+          hint="Fraction complete"
+        />
+        <Stat
+          icon={<SunMedium />}
+          label="Season"
+          value={formatEarthSeason(orreryModel.earthSeason)}
+          hint="Northern hemisphere"
+        />
+      </aside>
+    );
+  }
+
   const seek = (instant: Date | null) => seekMinute(instant, model.date, longitude);
   const sunriseValue = riseLabel(model, longitude, "sunrise");
   const sunsetValue = riseLabel(model, longitude, "sunset");

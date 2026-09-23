@@ -15,10 +15,25 @@ import {
   placeSun,
 } from "@/lib/solar";
 import {
+  ALL_PLANET_IDS,
+  buildOrreryModel,
+  orbitalPhaseSamples,
+  type PlanetId,
+} from "@/lib/orrery";
+import {
+  DEFAULT_STUDIO_VIEW,
+  type StudioModel,
+  type StudioTheme,
+  type StudioView,
+} from "@/lib/studio-view";
+import {
+  advanceOrreryClock,
   advanceSolarClock,
   DAY_MINUTES,
   initialClock,
+  ORRERY_PLAYBACK_SPEEDS,
   PLAYBACK_SPEEDS,
+  type OrreryPlaybackSpeed,
   type PlaybackSpeed,
   type SolarClock,
 } from "@/lib/timeline";
@@ -33,7 +48,20 @@ export function useSolarView(initial?: ParsedView) {
   const playingRef = useRef(false);
   const [loopDay, setLoopDay] = useState(false);
   const loopDayRef = useRef(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeed>(PLAYBACK_SPEEDS[2]);
+  const [astrolabeSpeed, setAstrolabeSpeed] = useState<PlaybackSpeed>(PLAYBACK_SPEEDS[2]);
+  const [orrerySpeed, setOrrerySpeed] = useState<OrreryPlaybackSpeed>(ORRERY_PLAYBACK_SPEEDS[2]);
+  const [studioModel, setStudioModelState] = useState<StudioModel>(
+    () => initial?.model ?? DEFAULT_STUDIO_VIEW.model,
+  );
+  const [studioTheme, setStudioThemeState] = useState<StudioTheme>(
+    () => initial?.theme ?? DEFAULT_STUDIO_VIEW.theme,
+  );
+  const [focusPlanet, setFocusPlanet] = useState<PlanetId | "moon">("earth");
+  const [visiblePlanets, setVisiblePlanets] = useState<Set<PlanetId>>(
+    () => new Set(ALL_PLANET_IDS),
+  );
+  const [loopYear, setLoopYear] = useState(false);
+  const loopYearRef = useRef(false);
   const [latText, setLatText] = useState(String(initial?.latitude ?? ORLANDO.lat));
   const [lngText, setLngText] = useState(String(initial?.longitude ?? ORLANDO.lng));
   const [latitude, setLatitude] = useState(initial?.latitude ?? ORLANDO.lat);
@@ -63,6 +91,39 @@ export function useSolarView(initial?: ParsedView) {
     setLoopDay(value);
   };
 
+  const setYearLoop = (value: boolean) => {
+    loopYearRef.current = value;
+    setLoopYear(value);
+  };
+
+  const setStudioModel = (value: StudioModel) => {
+    setStudioModelState(value);
+    setPlayback(false);
+  };
+
+  const setStudioTheme = (value: StudioTheme) => {
+    setStudioThemeState(value);
+  };
+
+  const setStudioView = (next: StudioView) => {
+    setStudioModelState(next.model);
+    setStudioThemeState(next.theme);
+    setPlayback(false);
+  };
+
+  const togglePlanetVisibility = (id: PlanetId) => {
+    setVisiblePlanets((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        if (next.size <= 1) return current;
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   const publishClock = (next: SolarClock, stopPlayback = false) => {
     if (stopPlayback) setPlayback(false);
     clockRef.current = next;
@@ -83,6 +144,11 @@ export function useSolarView(initial?: ParsedView) {
     longitudeRef.current = longitude;
   }, [latitude, longitude]);
 
+  const studioModelRef = useRef(studioModel);
+  useEffect(() => {
+    studioModelRef.current = studioModel;
+  }, [studioModel]);
+
   useEffect(() => {
     if (!playing) return;
     playingRef.current = true;
@@ -94,9 +160,14 @@ export function useSolarView(initial?: ParsedView) {
       if (!playingRef.current) return;
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      const step = advanceSolarClock(clockRef.current, dt * playbackSpeed.minutesPerSecond, {
-        loopDay: loopDayRef.current,
-      });
+      const step =
+        studioModelRef.current === "orrery"
+          ? advanceOrreryClock(clockRef.current, dt * orrerySpeed.daysPerSecond, {
+              loopYear: loopYearRef.current,
+            })
+          : advanceSolarClock(clockRef.current, dt * astrolabeSpeed.minutesPerSecond, {
+              loopDay: loopDayRef.current,
+            });
       clockRef.current = step.clock;
       const dayKey = `${step.clock.year}:${step.clock.dayIndex}`;
       const dayChanged = dayKey !== publishedDay;
@@ -117,7 +188,7 @@ export function useSolarView(initial?: ParsedView) {
       cancelAnimationFrame(frame);
       setClock(clockRef.current);
     };
-  }, [playing, playbackSpeed.minutesPerSecond]);
+  }, [playing, astrolabeSpeed.minutesPerSecond, orrerySpeed.daysPerSecond]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -194,12 +265,37 @@ export function useSolarView(initial?: ParsedView) {
     [model.date, latitude, longitude],
   );
 
+  const orreryModel = useMemo(
+    () =>
+      buildOrreryModel({
+        clock,
+        longitude,
+        focusId: focusPlanet,
+        visiblePlanets,
+      }),
+    [clock, longitude, focusPlanet, visiblePlanets],
+  );
+
+  const dayCount = daysInYear(year);
+  const orbitalSamples = useMemo(
+    () =>
+      orbitalPhaseSamples({
+        planetId: focusPlanet === "moon" ? "moon" : focusPlanet,
+        year,
+        longitude,
+        dayCount,
+      }),
+    [focusPlanet, year, longitude, dayCount],
+  );
+
   const roundedMinute = ((Math.round(minutes) % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES;
   const viewRef = useRef({
     latitude,
     longitude,
     date: model.date,
     minutes: roundedMinute,
+    model: studioModel,
+    theme: studioTheme,
   });
   const syncUrlRef = useRef<() => void>(() => {});
 
@@ -267,10 +363,12 @@ export function useSolarView(initial?: ParsedView) {
       longitude,
       date: model.date,
       minutes: roundedMinute,
+      model: studioModel,
+      theme: studioTheme,
     };
     if (playing) return;
     syncUrlRef.current();
-  }, [playing, latitude, longitude, model.date, roundedMinute]);
+  }, [playing, latitude, longitude, model.date, roundedMinute, studioModel, studioTheme]);
 
   const applyLatitude = (value: string) => {
     setLatText(value);
@@ -334,12 +432,25 @@ export function useSolarView(initial?: ParsedView) {
     year,
     dayIndex,
     minutes,
-    dayCount: daysInYear(year),
+    dayCount,
     playing,
     loopDay,
     setDayLoop,
-    playbackSpeed,
-    setPlaybackSpeed,
+    loopYear,
+    setYearLoop,
+    astrolabeSpeed,
+    setAstrolabeSpeed,
+    orrerySpeed,
+    setOrrerySpeed,
+    studioModel,
+    studioTheme,
+    setStudioModel,
+    setStudioTheme,
+    setStudioView,
+    focusPlanet,
+    setFocusPlanet,
+    visiblePlanets,
+    togglePlanetVisibility,
     latitude,
     longitude,
     latText,
@@ -355,10 +466,12 @@ export function useSolarView(initial?: ParsedView) {
     fullscreen,
     setFullscreen,
     model,
+    orreryModel,
     sun,
     moonModel,
     moon,
     samples,
+    orbitalSamples,
     seekMinutes,
     seekDate,
     setPlayback,

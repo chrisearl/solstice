@@ -22,6 +22,16 @@ export const PLAYBACK_SPEEDS = [
 
 export type PlaybackSpeed = (typeof PLAYBACK_SPEEDS)[number];
 
+export const ORRERY_PLAYBACK_SPEEDS = [
+  { label: "1 d/s", daysPerSecond: 1 },
+  { label: "7 d/s", daysPerSecond: 7 },
+  { label: "30 d/s", daysPerSecond: 30 },
+  { label: "365 d/s", daysPerSecond: 365 },
+  { label: "3650 d/s", daysPerSecond: 3650 },
+] as const;
+
+export type OrreryPlaybackSpeed = (typeof ORRERY_PLAYBACK_SPEEDS)[number];
+
 export interface SolarClock {
   year: number;
   dayIndex: number;
@@ -43,6 +53,11 @@ export interface SolarClockStep {
 export interface AdvanceSolarClockOptions {
   /** When true, minutes wrap at midnight without advancing the calendar day. */
   loopDay?: boolean;
+}
+
+export interface AdvanceOrreryClockOptions {
+  /** When true, dayIndex wraps at year-end without advancing the calendar year. */
+  loopYear?: boolean;
 }
 
 /**
@@ -157,4 +172,55 @@ export function advanceSolarClock(
 export function nextPlaybackSpeed(current: PlaybackSpeed): PlaybackSpeed {
   const index = PLAYBACK_SPEEDS.indexOf(current);
   return PLAYBACK_SPEEDS[(index + 1) % PLAYBACK_SPEEDS.length];
+}
+
+export function nextOrreryPlaybackSpeed(current: OrreryPlaybackSpeed): OrreryPlaybackSpeed {
+  const index = ORRERY_PLAYBACK_SPEEDS.indexOf(current);
+  return ORRERY_PLAYBACK_SPEEDS[(index + 1) % ORRERY_PLAYBACK_SPEEDS.length];
+}
+
+/**
+ * Advance the clock by fractional days for orrery playback.
+ * Sub-day motion updates minutes; whole days roll dayIndex (and year when needed).
+ */
+export function advanceOrreryClock(
+  clock: SolarClock,
+  deltaDays: number,
+  options?: AdvanceOrreryClockOptions,
+): SolarClockStep {
+  if (deltaDays === 0) return { clock, blocked: false };
+
+  let totalMinutes = clock.minutes + deltaDays * DAY_MINUTES;
+  let dayIndex = clock.dayIndex;
+  let year = clock.year;
+
+  if (options?.loopYear) {
+    const dayCount = daysInYear(year);
+    while (totalMinutes >= DAY_MINUTES) {
+      totalMinutes -= DAY_MINUTES;
+      dayIndex += 1;
+      if (dayIndex >= dayCount) dayIndex = 0;
+    }
+    while (totalMinutes < 0) {
+      totalMinutes += DAY_MINUTES;
+      dayIndex -= 1;
+      if (dayIndex < 0) dayIndex = dayCount - 1;
+    }
+    const minutes = Math.min(DAY_MINUTES - 0.001, Math.max(0, totalMinutes));
+    return { clock: { year, dayIndex, minutes }, blocked: false };
+  }
+
+  let dayDelta = 0;
+  while (totalMinutes >= DAY_MINUTES) {
+    totalMinutes -= DAY_MINUTES;
+    dayDelta += 1;
+  }
+  while (totalMinutes < 0) {
+    totalMinutes += DAY_MINUTES;
+    dayDelta -= 1;
+  }
+
+  const shifted = shiftDays({ ...clock, minutes: totalMinutes }, dayDelta);
+  if (!shifted) return { clock, blocked: true };
+  return { clock: shifted, blocked: false };
 }
