@@ -4,6 +4,7 @@ import { Html, Line, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import {
   type ComponentRef,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -24,6 +25,7 @@ import {
 import type { LayoutInsets } from "@/lib/layout-insets";
 import {
   DISC_RADIUS,
+  GNOMON_HEIGHT,
   SKY_RADIUS,
   project,
   splitPathRuns,
@@ -129,6 +131,8 @@ function InkInstrument({
       <group>
         <InkCompass />
         {showSun && <InkHorizon horizon={horizon} />}
+        <InkGnomon />
+        {showSun && <InkShadowRig sun={sun} />}
         {showSun &&
           arcs.map((arc) => <InkSkyArc key={arc.id} arc={arc} variant={arc.id} />)}
         {showMoon && <InkSkyArc arc={moonArc} variant="moon" />}
@@ -210,6 +214,91 @@ function InkCompass() {
           </Html>
         );
       })}
+    </group>
+  );
+}
+
+function InkGnomon() {
+  const post = useMemo(
+    () => [
+      { x: 0, y: 0.024, z: 0 },
+      { x: 0, y: GNOMON_HEIGHT + 0.008, z: 0 },
+    ],
+    [],
+  );
+
+  return (
+    <group renderOrder={5}>
+      <InkRing radius={0.14} y={0.024} lineWidth={1.55} opacity={0.9} />
+      <InkStroke points={post} lineWidth={1.85} opacity={0.92} />
+      <InkRing radius={0.044} y={GNOMON_HEIGHT + 0.012} lineWidth={1.45} opacity={0.94} />
+    </group>
+  );
+}
+
+function InkShadowRig({ sun }: { sun: SunPlacement }) {
+  const motion = useSolarMotion();
+  const ray = useRef<ComponentRef<typeof Line>>(null);
+  const shadow = useRef<ComponentRef<typeof Line>>(null);
+  const tip = useRef<THREE.Mesh>(null);
+
+  const apply = useCallback((placement: SunPlacement) => {
+    const tipPoint = { x: 0, y: GNOMON_HEIGHT, z: 0 };
+    const origin = { x: 0, y: 0.045, z: 0 };
+    if (ray.current) ray.current.visible = placement.aboveHorizon;
+    writeSegment(ray.current, placement.position, tipPoint);
+    const mark = placement.shadow;
+    if (shadow.current) shadow.current.visible = Boolean(mark);
+    if (mark) writeSegment(shadow.current, origin, mark);
+    if (tip.current) {
+      tip.current.visible = Boolean(mark);
+      if (mark) tip.current.position.set(mark.x, 0.048, mark.z);
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    if (motion.playing.current) return;
+    apply(sun);
+  }, [apply, motion, sun]);
+
+  useFrame(() => {
+    if (!motion.playing.current) return;
+    apply(readLiveBodies(motion).sun);
+  });
+
+  return (
+    <group renderOrder={4}>
+      <Line
+        ref={ray}
+        points={SEGMENT}
+        color={INK}
+        lineWidth={1.05}
+        dashed
+        dashSize={0.12}
+        gapSize={0.14}
+        transparent
+        opacity={0.38}
+        depthWrite={false}
+      />
+      <Line
+        ref={shadow}
+        points={SEGMENT}
+        color={INK}
+        lineWidth={2.05}
+        transparent
+        opacity={0.88}
+        depthWrite={false}
+      />
+      <mesh ref={tip} rotation={[-Math.PI / 2, 0, 0]} renderOrder={4}>
+        <circleGeometry args={[0.05, 20]} />
+        <meshBasicMaterial
+          color={INK}
+          transparent
+          opacity={0.82}
+          toneMapped={false}
+          depthWrite={false}
+        />
+      </mesh>
     </group>
   );
 }
@@ -466,6 +555,21 @@ function horizonArc(start: number, sweep: number, radius: number): Vec3[] {
     points.push({ x: point.x, y: 0.032, z: point.z });
   }
   return points;
+}
+
+const SEGMENT: [number, number, number][] = [
+  [0, 1, 0],
+  [0, 0, 0],
+];
+
+function writeSegment(
+  line: ComponentRef<typeof Line> | null,
+  from: { x: number; y: number; z: number },
+  to: { x: number; y: number; z: number },
+) {
+  const geometry = (line as { geometry?: { setPositions?: (values: number[]) => void } } | null)
+    ?.geometry;
+  geometry?.setPositions?.([from.x, from.y, from.z, to.x, to.y, to.z]);
 }
 
 function radial(azimuth: number, inner: number, outer: number): Vec3[] {
