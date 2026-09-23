@@ -4,7 +4,6 @@ import { Html, Line, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   type ComponentRef,
-  useCallback,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -12,28 +11,15 @@ import {
 } from "react";
 import * as THREE from "three";
 import { OrreryMarkings } from "@/components/orrery-markings";
+import { InkPlanetBody } from "@/components/orrery-planets";
 import { watchContextLoss } from "@/components/scene-boundary";
 import { readLiveOrrery, useSolarMotion } from "@/components/solar-motion";
-import {
-  DAVINCI_HATCH_DENSITY,
-  DAVINCI_HATCH_WEIGHT,
-  davinciFragmentShader,
-  davinciVertexShader,
-} from "@/lib/davinci-shader";
-import {
-  bodyById,
-  buildOrbitPaths,
-  type BodyId,
-  type BodyPlacement,
-  type OrreryModel,
-  type PlanetId,
-} from "@/lib/orrery";
+import { bodyById, buildOrbitPaths } from "@/lib/orrery";
 import type { LayoutInsets } from "@/lib/layout-insets";
 import { createOrreryAppliancePoints } from "@/lib/scene-framing";
 import type { OrrerySceneProps } from "@/components/orrery-scene";
 
 const INK = "#3a2412";
-const PAPER = "#dfcdad";
 const ORRERY_APPLIANCE_POINTS = createOrreryAppliancePoints();
 const ORRERY_LOOK = new THREE.Vector3(0, 0, 0);
 const ORRERY_HOME = new THREE.Vector3(0, 14, 18).normalize();
@@ -147,57 +133,6 @@ function InkSun() {
     <mesh position={[0, 0, 0]}>
       <sphereGeometry args={[0.55, 32, 32]} />
       <meshBasicMaterial color="#c8922a" />
-    </mesh>
-  );
-}
-
-function InkPlanetBody({
-  body,
-  focused,
-  onFocus,
-}: {
-  body: BodyPlacement;
-  focused: boolean;
-  onFocus: (id: BodyId) => void;
-}) {
-  const mesh = useRef<THREE.Mesh>(null);
-  const material = useRef<THREE.ShaderMaterial>(null);
-  const uniforms = useMemo(
-    () => ({
-      uLightDirection: { value: new THREE.Vector3(0.4, 0.7, 0.5).normalize() },
-      uInkColor: { value: new THREE.Color("#2b190d") },
-      uPaperColor: { value: new THREE.Color(PAPER) },
-      uHatchDensity: { value: DAVINCI_HATCH_DENSITY },
-      uLineWeight: { value: DAVINCI_HATCH_WEIGHT },
-      uIsLightSource: { value: 0 },
-    }),
-    [],
-  );
-
-  const handleClick = useCallback(
-    (event: THREE.Event & { stopPropagation: () => void }) => {
-      event.stopPropagation();
-      onFocus(body.id);
-    },
-    [body.id, onFocus],
-  );
-
-  useLayoutEffect(() => {
-    const scale = body.displayRadius * (focused ? 1.15 : 1);
-    mesh.current?.position.set(body.position.x, body.position.y, body.position.z);
-    mesh.current?.scale.setScalar(scale);
-  }, [body, focused]);
-
-  return (
-    <mesh ref={mesh} onClick={handleClick} renderOrder={6}>
-      <sphereGeometry args={[1, 32, 32]} />
-      <shaderMaterial
-        ref={material}
-        toneMapped={false}
-        uniforms={uniforms}
-        vertexShader={davinciVertexShader}
-        fragmentShader={davinciFragmentShader}
-      />
     </mesh>
   );
 }

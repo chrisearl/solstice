@@ -5,7 +5,6 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   type ComponentRef,
   Suspense,
-  useCallback,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -13,13 +12,13 @@ import {
 } from "react";
 import * as THREE from "three";
 import { OrreryMarkings } from "@/components/orrery-markings";
+import { NightPlanetBody } from "@/components/orrery-planets";
 import { watchContextLoss } from "@/components/scene-boundary";
 import { readLiveOrrery, useSolarMotion } from "@/components/solar-motion";
 import {
   bodyById,
   buildOrbitPaths,
   type BodyId,
-  type BodyPlacement,
   type OrreryModel,
   type PlanetId,
 } from "@/lib/orrery";
@@ -120,7 +119,7 @@ function OrreryInstrument({
       {liveModel.bodies
         .filter((body) => body.id !== "sun")
         .map((body) => (
-          <PlanetBody
+          <NightPlanetBody
             key={body.id}
             body={body}
             focused={body.id === focusId}
@@ -235,38 +234,3 @@ function OrreryFrameCamera({
   return null;
 }
 
-function PlanetBody({
-  body,
-  focused,
-  onFocus,
-}: {
-  body: BodyPlacement;
-  focused: boolean;
-  onFocus: (id: BodyId) => void;
-}) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const handleClick = useCallback(
-    (event: THREE.Event & { stopPropagation: () => void }) => {
-      event.stopPropagation();
-      onFocus(body.id);
-    },
-    [body.id, onFocus],
-  );
-
-  return (
-    <mesh
-      ref={meshRef}
-      position={[body.position.x, body.position.y, body.position.z]}
-      onClick={handleClick}
-    >
-      <sphereGeometry args={[body.displayRadius * (focused ? 1.15 : 1), 24, 24]} />
-      <meshStandardMaterial
-        color={body.color}
-        emissive={body.color}
-        emissiveIntensity={focused ? 0.35 : 0.14}
-        roughness={0.65}
-        metalness={0.15}
-      />
-    </mesh>
-  );
-}
