@@ -12,12 +12,18 @@ export const DAY_MINUTES = 1440;
 export const SOLAR_YEAR_MIN = 1900;
 export const SOLAR_YEAR_MAX = 2100;
 
+/** Mean calendar lengths for constant-rate playback across year boundaries. */
+const DAYS_PER_MONTH = 365.25 / 12;
+const DAYS_PER_YEAR = 365.25;
+
+/** Simulated calendar time that passes per real second at each speed. */
 export const PLAYBACK_SPEEDS = [
-  { label: "1×", minutesPerSecond: 1 },
-  { label: "10×", minutesPerSecond: 10 },
-  { label: "48×", minutesPerSecond: 48 },
-  { label: "120×", minutesPerSecond: 120 },
-  { label: "480×", minutesPerSecond: 480 },
+  { label: "1day", minutesPerSecond: DAY_MINUTES },
+  { label: "7day", minutesPerSecond: 7 * DAY_MINUTES },
+  { label: "1mo", minutesPerSecond: DAYS_PER_MONTH * DAY_MINUTES },
+  { label: "6mo", minutesPerSecond: 6 * DAYS_PER_MONTH * DAY_MINUTES },
+  { label: "1yr", minutesPerSecond: DAYS_PER_YEAR * DAY_MINUTES },
+  { label: "5yr", minutesPerSecond: 5 * DAYS_PER_YEAR * DAY_MINUTES },
 ] as const;
 
 export type PlaybackSpeed = (typeof PLAYBACK_SPEEDS)[number];
