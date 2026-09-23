@@ -191,6 +191,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
   };
 
   const orrerySceneProps = {
+    playing,
     model: orreryModel,
     focusId: focusPlanet,
     visiblePlanets,

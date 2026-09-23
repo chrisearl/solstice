@@ -6,7 +6,6 @@ import {
   type ComponentRef,
   Suspense,
   useCallback,
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -28,6 +27,7 @@ import { createOrreryAppliancePoints } from "@/lib/scene-framing";
 
 export interface OrrerySceneProps {
   active: boolean;
+  playing: boolean;
   model: OrreryModel;
   focusId: PlanetId | "moon";
   visiblePlanets: ReadonlySet<PlanetId>;
@@ -65,6 +65,7 @@ export default function OrreryScene(props: OrrerySceneProps) {
 
 function OrreryInstrument({
   model,
+  playing,
   focusId,
   visiblePlanets,
   resetSignal,
@@ -74,17 +75,14 @@ function OrreryInstrument({
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
   const motion = useSolarMotion();
   const orbitPaths = useMemo(() => buildOrbitPaths(128), []);
-  const [liveModel, setLiveModel] = useState(model);
-
-  useLayoutEffect(() => {
-    if (motion.playing.current) return;
-    setLiveModel(model);
-  }, [model, motion.playing]);
+  const [animatedModel, setAnimatedModel] = useState(model);
 
   useFrame(() => {
-    if (!motion.playing.current) return;
-    setLiveModel(readLiveOrrery(motion, focusId, visiblePlanets));
+    if (!playing) return;
+    setAnimatedModel(readLiveOrrery(motion, focusId, visiblePlanets));
   });
+
+  const liveModel = playing ? animatedModel : model;
 
   const focusBody = bodyById(liveModel, focusId) ?? bodyById(liveModel, "earth");
 
@@ -168,6 +166,8 @@ function OrreryFrameCamera({
   const camera = useThree((state) => state.camera);
   const size = useThree((state) => state.size);
 
+  /* Three.js cameras and orbit controls are mutable scene-graph objects. */
+  /* eslint-disable react-hooks/immutability */
   useLayoutEffect(() => {
     if (!(camera instanceof THREE.PerspectiveCamera)) return;
     if (size.width < 2 || size.height < 2) return;
@@ -227,6 +227,7 @@ function OrreryFrameCamera({
     orbit.update();
     orbit.saveState();
   }, [camera, controls, layoutInsets, resetSignal, size.height, size.width]);
+  /* eslint-enable react-hooks/immutability */
 
   return null;
 }

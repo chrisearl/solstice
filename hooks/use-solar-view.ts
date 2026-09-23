@@ -29,6 +29,7 @@ import {
 import {
   advanceOrreryClock,
   advanceSolarClock,
+  clockFromInstant,
   DAY_MINUTES,
   initialClock,
   ORRERY_PLAYBACK_SPEEDS,
@@ -48,8 +49,8 @@ export function useSolarView(initial?: ParsedView) {
   const playingRef = useRef(false);
   const [loopDay, setLoopDay] = useState(false);
   const loopDayRef = useRef(false);
-  const [astrolabeSpeed, setAstrolabeSpeed] = useState<PlaybackSpeed>(PLAYBACK_SPEEDS[2]);
-  const [orrerySpeed, setOrrerySpeed] = useState<OrreryPlaybackSpeed>(ORRERY_PLAYBACK_SPEEDS[2]);
+  const [astrolabeSpeed, setAstrolabeSpeedState] = useState<PlaybackSpeed>(PLAYBACK_SPEEDS[0]);
+  const [orrerySpeed, setOrrerySpeedState] = useState<OrreryPlaybackSpeed>(ORRERY_PLAYBACK_SPEEDS[0]);
   const [studioModel, setStudioModelState] = useState<StudioModel>(
     () => initial?.model ?? DEFAULT_STUDIO_VIEW.model,
   );
@@ -130,6 +131,20 @@ export function useSolarView(initial?: ParsedView) {
     setClock(next);
   };
 
+  const syncClockToNow = () => {
+    publishClock(clockFromInstant(new Date(), longitudeRef.current));
+  };
+
+  const setAstrolabeSpeed = (speed: PlaybackSpeed) => {
+    setAstrolabeSpeedState(speed);
+    if (speed.realtime) syncClockToNow();
+  };
+
+  const setOrrerySpeed = (speed: OrreryPlaybackSpeed) => {
+    setOrrerySpeedState(speed);
+    if (speed.realtime) syncClockToNow();
+  };
+
   const seekMinutes = (value: number) => {
     const nextMinutes = value >= DAY_MINUTES ? DAY_MINUTES - 0.001 : Math.max(0, value);
     publishClock({ ...clockRef.current, minutes: nextMinutes }, true);
@@ -162,12 +177,16 @@ export function useSolarView(initial?: ParsedView) {
       last = now;
       const step =
         studioModelRef.current === "orrery"
-          ? advanceOrreryClock(clockRef.current, dt * orrerySpeed.daysPerSecond, {
-              loopYear: loopYearRef.current,
-            })
-          : advanceSolarClock(clockRef.current, dt * astrolabeSpeed.minutesPerSecond, {
-              loopDay: loopDayRef.current,
-            });
+          ? orrerySpeed.realtime
+            ? { clock: clockFromInstant(new Date(), longitudeRef.current), blocked: false }
+            : advanceOrreryClock(clockRef.current, dt * orrerySpeed.daysPerSecond, {
+                loopYear: loopYearRef.current,
+              })
+          : astrolabeSpeed.realtime
+            ? { clock: clockFromInstant(new Date(), longitudeRef.current), blocked: false }
+            : advanceSolarClock(clockRef.current, dt * astrolabeSpeed.minutesPerSecond, {
+                loopDay: loopDayRef.current,
+              });
       clockRef.current = step.clock;
       const dayKey = `${step.clock.year}:${step.clock.dayIndex}`;
       const dayChanged = dayKey !== publishedDay;
@@ -188,7 +207,7 @@ export function useSolarView(initial?: ParsedView) {
       cancelAnimationFrame(frame);
       setClock(clockRef.current);
     };
-  }, [playing, astrolabeSpeed.minutesPerSecond, orrerySpeed.daysPerSecond]);
+  }, [playing, astrolabeSpeed, orrerySpeed]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
