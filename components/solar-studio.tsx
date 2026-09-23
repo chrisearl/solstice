@@ -9,11 +9,13 @@ import { SceneHud } from "@/components/scene-hud";
 import { GuardedScene } from "@/components/scene-boundary";
 import { SolarMotionProvider } from "@/components/solar-motion";
 import { TimelineSheet } from "@/components/timeline-sheet";
-import { ViewSwitcher, type StudioView } from "@/components/view-switcher";
+import { ViewSwitcher } from "@/components/view-switcher";
 import { useDavinciUnlock } from "@/hooks/use-davinci-unlock";
 import { useInspectorLayout, useLayout } from "@/hooks/use-layout";
 import { useSolarView } from "@/hooks/use-solar-view";
+import type { BodyId } from "@/lib/orrery";
 import { STUDIO_CHROME_TOP_CLASS } from "@/lib/layout-insets";
+import { resolveStudioView } from "@/lib/studio-view";
 import type { ParsedView } from "@/lib/view-query";
 import { locationLabel, parseIsoDate } from "@/lib/format";
 
@@ -23,6 +25,16 @@ const SolarScene = dynamic(() => import("@/components/solar-scene"), {
 });
 
 const DavinciView = dynamic(() => import("@/components/davinci-view"), {
+  ssr: false,
+  loading: () => <DavinciPlaceholder />,
+});
+
+const OrreryScene = dynamic(() => import("@/components/orrery-scene"), {
+  ssr: false,
+  loading: () => <OrreryPlaceholder />,
+});
+
+const DavinciOrreryView = dynamic(() => import("@/components/davinci-orrery-view"), {
   ssr: false,
   loading: () => <DavinciPlaceholder />,
 });
@@ -39,8 +51,20 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     playing,
     loopDay,
     setDayLoop,
-    playbackSpeed,
-    setPlaybackSpeed,
+    loopYear,
+    setYearLoop,
+    astrolabeSpeed,
+    setAstrolabeSpeed,
+    orrerySpeed,
+    setOrrerySpeed,
+    studioModel,
+    studioTheme,
+    setStudioModel,
+    setStudioTheme,
+    focusPlanet,
+    setFocusPlanet,
+    visiblePlanets,
+    togglePlanetVisibility,
     latitude,
     longitude,
     latText,
@@ -56,10 +80,12 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     fullscreen,
     setFullscreen,
     model,
+    orreryModel,
     sun,
     moonModel,
     moon,
     samples,
+    orbitalSamples,
     seekMinutes,
     seekDate,
     setPlayback,
@@ -69,11 +95,16 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     locate,
     resetPlace,
   } = viewState;
-  const [viewRequest, setView] = useState<StudioView>("default");
-  const [davinciMounted, setDavinciMounted] = useState(false);
+
+  const [davinciMounted, setDavinciMounted] = useState(
+    () => initial?.theme === "davinci",
+  );
+  const [orreryMounted, setOrreryMounted] = useState(
+    () => initial?.model === "orrery",
+  );
   const [readingsOpen, setReadingsOpen] = useState(false);
   const { davinciUnlocked } = useDavinciUnlock();
-  const view: StudioView = viewRequest === "davinci" && !davinciUnlocked ? "default" : viewRequest;
+  const view = resolveStudioView(studioModel, studioTheme, davinciUnlocked);
 
   const {
     breakpoint,
@@ -99,17 +130,32 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     [fullscreen, insets.bottom, insets.left, insets.right, insets.top],
   );
 
-  const selectView = (next: StudioView) => {
+  const handleModel = (next: typeof studioModel) => {
+    if (next === "orrery") setOrreryMounted(true);
+    setStudioModel(next);
+  };
+
+  const handleTheme = (next: typeof studioTheme) => {
     if (next === "davinci" && !davinciUnlocked) return;
     if (next === "davinci") setDavinciMounted(true);
-    setView(next);
+    setStudioTheme(next);
   };
 
   const showStudioChrome = !fullscreen;
-  const parchment = view === "davinci";
+  const parchment = view.theme === "davinci";
+  const astrolabeActive = view.model === "astrolabe";
+  const orreryActive = view.model === "orrery";
+  const nightAstrolabe = astrolabeActive && view.theme === "default";
+  const davinciAstrolabe = astrolabeActive && view.theme === "davinci";
+  const nightOrrery = orreryActive && view.theme === "default";
+  const davinciOrrery = orreryActive && view.theme === "davinci";
 
   const sharedPanelProps = {
+    studioModel: view.model,
     model,
+    orreryModel,
+    focusPlanet,
+    visiblePlanets,
     moonModel,
     moon,
     latitude,
@@ -138,8 +184,21 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     onMinutes: seekMinutes,
     onShowSun: setShowSun,
     onShowMoon: setShowMoon,
+    onFocusPlanet: setFocusPlanet,
+    onTogglePlanet: togglePlanetVisibility,
     onResetView: bumpResetSignal,
     onResetPlace: resetPlace,
+  };
+
+  const orrerySceneProps = {
+    model: orreryModel,
+    focusId: focusPlanet,
+    visiblePlanets,
+    resetSignal,
+    layoutInsets: sceneInsets,
+    onFocus: (id: BodyId) => {
+      if (id !== "sun") setFocusPlanet(id);
+    },
   };
 
   const showDesktopRail = breakpoint === "desktop" || breakpoint === "large";
@@ -150,13 +209,13 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     <div
       ref={stageRef}
       className={`studio-stage relative h-dvh w-full overflow-hidden text-[#f3efe6] ${
-        view === "davinci" ? "bg-[#dfcdad]" : "bg-[#07080d]"
+        parchment ? "bg-[#dfcdad]" : "bg-[#07080d]"
       }`}
     >
       <div
-        className={`absolute inset-0 ${view === "default" ? "" : "invisible"}`}
-        inert={view === "default" ? undefined : true}
-        aria-hidden={view !== "default"}
+        className={`absolute inset-0 ${nightAstrolabe ? "" : "invisible"}`}
+        inert={nightAstrolabe ? undefined : true}
+        aria-hidden={!nightAstrolabe}
       >
         <GuardedScene
           title="Charting the sky"
@@ -174,7 +233,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
               showMoon={showMoon}
               resetSignal={resetSignal}
               layoutInsets={sceneInsets}
-              active={view === "default"}
+              active={nightAstrolabe}
               onContextLost={onContextLost}
             />
           )}
@@ -184,9 +243,9 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
 
       {davinciMounted && (
         <div
-          className={`absolute inset-0 ${view === "davinci" ? "" : "invisible"}`}
-          inert={view === "davinci" ? undefined : true}
-          aria-hidden={view !== "davinci"}
+          className={`absolute inset-0 ${davinciAstrolabe ? "" : "invisible"}`}
+          inert={davinciAstrolabe ? undefined : true}
+          aria-hidden={!davinciAstrolabe}
         >
           <GuardedScene
             title="Tracing the codex"
@@ -195,7 +254,7 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
           >
             {(onContextLost) => (
               <DavinciView
-                active={view === "davinci"}
+                active={davinciAstrolabe}
                 arcs={model.arcs}
                 horizon={model.horizon}
                 sun={sun}
@@ -212,13 +271,61 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
         </div>
       )}
 
+      {orreryMounted && (
+        <div
+          className={`absolute inset-0 ${nightOrrery ? "" : "invisible"}`}
+          inert={nightOrrery ? undefined : true}
+          aria-hidden={!nightOrrery}
+        >
+          <GuardedScene
+            title="Charting the orrery"
+            detail="The graphics view stopped. Try again to start a new one."
+            tone="night"
+          >
+            {(onContextLost) => (
+              <OrreryScene
+                active={nightOrrery}
+                {...orrerySceneProps}
+                onContextLost={onContextLost}
+              />
+            )}
+          </GuardedScene>
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.42)_100%)]" />
+        </div>
+      )}
+
+      {orreryMounted && davinciMounted && (
+        <div
+          className={`absolute inset-0 ${davinciOrrery ? "" : "invisible"}`}
+          inert={davinciOrrery ? undefined : true}
+          aria-hidden={!davinciOrrery}
+        >
+          <GuardedScene
+            title="Tracing the orrery codex"
+            detail="The graphics view stopped. Try again to start a new one."
+            tone="parchment"
+          >
+            {(onContextLost) => (
+              <DavinciOrreryView
+                active={davinciOrrery}
+                {...orrerySceneProps}
+                onContextLost={onContextLost}
+              />
+            )}
+          </GuardedScene>
+        </div>
+      )}
+
       <div
         data-chrome={parchment ? "parchment" : undefined}
         className="pointer-events-none absolute inset-0 z-20"
       >
       <SceneHud
           breakpoint={breakpoint}
+          studioModel={view.model}
           model={model}
+          orreryModel={orreryModel}
+          focusPlanet={focusPlanet}
           moonModel={moonModel}
           sun={sun}
           moon={moon}
@@ -272,12 +379,16 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
             view={view}
             fullscreen={fullscreen}
             davinciUnlocked={davinciUnlocked}
-            onView={selectView}
+            onModel={handleModel}
+            onTheme={handleTheme}
             onFullscreen={() => setFullscreen((value) => !value)}
             className="pointer-events-auto shrink-0"
           />
           <StatRail
+            studioModel={view.model}
             model={model}
+            orreryModel={orreryModel}
+            focusPlanet={focusPlanet}
             moonModel={moonModel}
             sun={sun}
             moon={moon}
@@ -305,10 +416,14 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
       </div>
 
       <TimelineSheet
+        studioModel={view.model}
         playing={playing}
         loopDay={loopDay}
-        speed={playbackSpeed}
+        loopYear={loopYear}
+        astrolabeSpeed={astrolabeSpeed}
+        orrerySpeed={orrerySpeed}
         samples={samples}
+        orbitalSamples={orbitalSamples}
         times={model.times}
         sun={sun}
         showSun={showSun}
@@ -317,12 +432,16 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
         longitude={longitude}
         year={year}
         dayIndex={dayIndex}
+        dayCount={dayCount}
         minutes={minutes}
         tone={parchment ? "parchment" : "night"}
         onMinutes={seekMinutes}
+        onDayIndex={(value) => seekDate(year, value)}
         onPlaying={setPlayback}
         onLoopDay={setDayLoop}
-        onSpeed={setPlaybackSpeed}
+        onLoopYear={setYearLoop}
+        onAstrolabeSpeed={setAstrolabeSpeed}
+        onOrrerySpeed={setOrrerySpeed}
       />
 
       {(!showStudioChrome || !showDesktopRail) && (
@@ -330,16 +449,26 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
           view={view}
           fullscreen={fullscreen}
           davinciUnlocked={davinciUnlocked}
-          onView={selectView}
+          onModel={handleModel}
+          onTheme={handleTheme}
           onFullscreen={() => setFullscreen((value) => !value)}
         />
       )}
 
       <p className="sr-only">
-        Three-dimensional chart of the sky for {locationLabel(latitude, longitude)}. Sun azimuth{" "}
-        {sun.azimuth.toFixed(1)} degrees, altitude {sun.altitude.toFixed(1)} degrees, lighting phase{" "}
-        {sun.lightingPhase.label}. Moon azimuth {moon.azimuth.toFixed(1)} degrees, altitude{" "}
-        {moon.altitude.toFixed(1)} degrees, phase {moon.phaseLabel}.
+        {view.model === "orrery" ? (
+          <>
+            Heliocentric orrery model. Focus {focusPlanet}. Earth season{" "}
+            {orreryModel.earthSeason}. Simulation date {model.date.toISOString()}.
+          </>
+        ) : (
+          <>
+            Three-dimensional chart of the sky for {locationLabel(latitude, longitude)}. Sun azimuth{" "}
+            {sun.azimuth.toFixed(1)} degrees, altitude {sun.altitude.toFixed(1)} degrees, lighting phase{" "}
+            {sun.lightingPhase.label}. Moon azimuth {moon.azimuth.toFixed(1)} degrees, altitude{" "}
+            {moon.altitude.toFixed(1)} degrees, phase {moon.phaseLabel}.
+          </>
+        )}
       </p>
     </div>
     </SolarMotionProvider>
@@ -353,6 +482,19 @@ function ScenePlaceholder() {
         <div className="mx-auto size-10 animate-pulse rounded-full bg-[#f0b429] shadow-[0_0_32px_rgba(240,180,41,0.8)] motion-reduce:animate-none" />
         <p className="mt-4 text-sm tracking-[0.18em] text-white/50 uppercase">
           Charting the sky
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function OrreryPlaceholder() {
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-[#07080d]">
+      <div className="text-center">
+        <div className="mx-auto size-10 animate-pulse rounded-full bg-[#f0b429] shadow-[0_0_32px_rgba(240,180,41,0.8)] motion-reduce:animate-none" />
+        <p className="mt-4 text-sm tracking-[0.18em] text-white/50 uppercase">
+          Charting the orrery
         </p>
       </div>
     </div>
