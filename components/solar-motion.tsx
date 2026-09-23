@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, type RefObject } from "react";
+import { buildOrreryModel, type OrreryModel, type PlanetId } from "@/lib/orrery";
 import { dateFromDayIndex, placeMoon, placeSun, type MoonPlacement, type SunPlacement } from "@/lib/solar";
 import type { SolarClock } from "@/lib/timeline";
 
@@ -43,4 +44,17 @@ export function readLiveBodies(motion: SolarMotionRefs): {
     sun: placeSun(date, clock.minutes, latitude, longitude),
     moon: placeMoon(date, clock.minutes, latitude, longitude),
   };
+}
+
+export function readLiveOrrery(
+  motion: SolarMotionRefs,
+  focusId: PlanetId | "moon",
+  visiblePlanets?: ReadonlySet<PlanetId>,
+): OrreryModel {
+  return buildOrreryModel({
+    clock: motion.clock.current,
+    longitude: motion.longitude.current,
+    focusId,
+    visiblePlanets,
+  });
 }

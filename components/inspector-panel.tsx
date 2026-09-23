@@ -2,75 +2,21 @@
 
 import { ChevronDown, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ControlPanel } from "@/components/control-panel";
+import { ControlPanel, type ControlPanelProps } from "@/components/control-panel";
 import type { Breakpoint, InspectorState } from "@/lib/layout-insets";
-import type { MoonModel, MoonPlacement, SolarModel } from "@/lib/solar";
 
-interface InspectorPanelProps {
+interface InspectorPanelProps extends ControlPanelProps {
   breakpoint: Breakpoint;
   state: InspectorState;
-  model: SolarModel;
-  moonModel: MoonModel;
-  moon: MoonPlacement;
-  latitude: number;
-  longitude: number;
-  latText: string;
-  lngText: string;
-  minutes: number;
-  dayIndex: number;
-  dayCount: number;
-  showSun: boolean;
-  showMoon: boolean;
-  locating: boolean;
-  geoError: string | null;
-  onLatText: (value: string) => void;
-  onLngText: (value: string) => void;
-  onPreset: (lat: number, lng: number) => void;
-  onLocate: () => void;
-  onDayIndex: (value: number) => void;
-  onDate: (iso: string) => void;
-  onMinutes: (value: number) => void;
-  onShowSun: (value: boolean) => void;
-  onShowMoon: (value: boolean) => void;
-  onResetView: () => void;
-  onResetPlace: () => void;
   onClose: () => void;
   onPeek: () => void;
   onOpen: () => void;
 }
 
 export function InspectorPanel(props: InspectorPanelProps) {
-  const { breakpoint, state } = props;
+  const { breakpoint, state, onClose, onPeek, onOpen, ...panelProps } = props;
   if (state === "closed") return null;
-
-  const panelProps = {
-    model: props.model,
-    moonModel: props.moonModel,
-    moon: props.moon,
-    latitude: props.latitude,
-    longitude: props.longitude,
-    latText: props.latText,
-    lngText: props.lngText,
-    minutes: props.minutes,
-    dayIndex: props.dayIndex,
-    dayCount: props.dayCount,
-    showSun: props.showSun,
-    showMoon: props.showMoon,
-    locating: props.locating,
-    geoError: props.geoError,
-    onLatText: props.onLatText,
-    onLngText: props.onLngText,
-    onPreset: props.onPreset,
-    onLocate: props.onLocate,
-    onDayIndex: props.onDayIndex,
-    onDate: props.onDate,
-    onMinutes: props.onMinutes,
-    onShowSun: props.onShowSun,
-    onShowMoon: props.onShowMoon,
-    onResetView: props.onResetView,
-    onResetPlace: props.onResetPlace,
-    compactHeader: true as const,
-  };
+  const controlPanelProps = { ...panelProps, compactHeader: true as const };
 
   if (breakpoint === "mobile") {
     return (
@@ -96,7 +42,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
           <div
             className={`panel-scroll overflow-y-auto px-4 pb-4 ${state === "peek" ? "hidden" : "block"}`}
           >
-            <ControlPanel {...panelProps} />
+            <ControlPanel {...controlPanelProps} />
           </div>
         </aside>
       </>
@@ -123,7 +69,7 @@ export function InspectorPanel(props: InspectorPanelProps) {
       >
         <DrawerHeader onClose={props.onClose} />
         <div className="panel-scroll min-h-0 flex-1 overflow-y-auto px-4 pb-4 md:px-5 md:pb-5">
-          <ControlPanel {...panelProps} />
+          <ControlPanel {...controlPanelProps} />
         </div>
       </aside>
     </>

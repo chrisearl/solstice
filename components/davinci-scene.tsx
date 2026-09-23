@@ -23,6 +23,7 @@ import {
   davinciVertexShader,
 } from "@/lib/davinci-shader";
 import type { LayoutInsets } from "@/lib/layout-insets";
+import { DAVINCI_DISC_FILL_OPACITY, davinciDiscFillColor } from "@/lib/light";
 import {
   ARC_HIERARCHY,
   DISC_RADIUS,
@@ -83,22 +84,21 @@ export function DavinciScene({
 
   return (
     <Canvas
-      className="absolute inset-0"
+      className="absolute inset-0 z-[1]"
       camera={{ position: [10.8, 6.4, 13.2], fov: 38, near: 0.1, far: 200 }}
       dpr={[1, 2]}
       frameloop={active ? "always" : "never"}
       gl={{
         antialias: true,
-        alpha: false,
+        alpha: true,
         powerPreference: "high-performance",
       }}
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.NoToneMapping;
-        gl.setClearColor(PAPER);
+        gl.setClearColor(0x000000, 0);
         watchContextLoss(gl.domElement, onContextLost);
       }}
     >
-      <color attach="background" args={[PAPER]} />
       <InkInstrument
         arcs={arcs}
         horizon={horizon}
@@ -132,7 +132,7 @@ function InkInstrument({
   return (
     <>
       <group>
-        <InkCompass />
+        <InkCompass sun={sun} />
         {showSun && <InkHorizon horizon={horizon} />}
         <InkGnomon />
         {showSun && <InkShadowRig sun={sun} />}
@@ -166,7 +166,26 @@ function InkInstrument({
   );
 }
 
-function InkCompass() {
+function InkCompass({ sun }: { sun: SunPlacement }) {
+  const fillMaterial = useRef<THREE.MeshBasicMaterial>(null);
+  const motion = useSolarMotion();
+
+  const applyFill = useCallback((placement: SunPlacement) => {
+    const material = fillMaterial.current;
+    if (!material) return;
+    material.color.set(davinciDiscFillColor(placement.lightingPhase.id));
+  }, []);
+
+  useLayoutEffect(() => {
+    if (motion.playing.current) return;
+    applyFill(sun);
+  }, [applyFill, motion, sun]);
+
+  useFrame(() => {
+    if (!motion.playing.current) return;
+    applyFill(readLiveBodies(motion).sun);
+  });
+
   const ticks = useMemo(() => {
     const pairs: [number, number, number][] = [];
     for (let bearing = 0; bearing < 360; bearing += 10) {
@@ -183,6 +202,17 @@ function InkCompass() {
 
   return (
     <group>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.011, 0]} renderOrder={2}>
+        <circleGeometry args={[DISC_RADIUS, 128]} />
+        <meshBasicMaterial
+          ref={fillMaterial}
+          color={davinciDiscFillColor(sun.lightingPhase.id)}
+          transparent
+          opacity={DAVINCI_DISC_FILL_OPACITY}
+          toneMapped={false}
+          depthWrite={false}
+        />
+      </mesh>
       <InkRing radius={DISC_RADIUS} y={0.02} lineWidth={1.8} opacity={0.92} />
       <InkRing radius={SKY_RADIUS} y={0.025} lineWidth={1.15} opacity={0.55} />
       <Line

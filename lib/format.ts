@@ -153,3 +153,36 @@ export function formatShadow(meters: number | null): string {
   if (meters < 10) return `${meters.toFixed(1)} m`;
   return `${Math.round(meters)} m`;
 }
+
+export function formatAu(distance: number, digits = 2): string {
+  if (!Number.isFinite(distance)) return "—";
+  return `${distance.toFixed(digits)} AU`;
+}
+
+export function formatOrbitalPhase(fraction: number): string {
+  if (!Number.isFinite(fraction)) return "—";
+  const wrapped = ((fraction % 1) + 1) % 1;
+  return `${Math.round(wrapped * 100)}%`;
+}
+
+export function formatUtcTime(date: Date): string {
+  if (Number.isNaN(date.getTime())) return "—";
+  const hours = String(date.getUTCHours()).padStart(2, "0");
+  const mins = String(date.getUTCMinutes()).padStart(2, "0");
+  return `${hours}:${mins} UTC`;
+}
+
+export function formatDayOfYear(dayIndex: number, dayCount: number, year: number): string {
+  return `Day ${dayIndex + 1} of ${dayCount}, ${year}`;
+}
+
+const SEASON_LABELS = {
+  spring: "Spring",
+  summer: "Summer",
+  autumn: "Autumn",
+  winter: "Winter",
+} as const;
+
+export function formatEarthSeason(season: keyof typeof SEASON_LABELS): string {
+  return SEASON_LABELS[season];
+}

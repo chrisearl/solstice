@@ -5,6 +5,12 @@ import {
   parseIsoDate,
   timeValueToMinutes,
 } from "./format.ts";
+import {
+  parseStudioModel,
+  parseStudioTheme,
+  type StudioModel,
+  type StudioTheme,
+} from "./studio-view.ts";
 
 export interface ParsedView {
   latitude?: number;
@@ -12,6 +18,8 @@ export interface ParsedView {
   year?: number;
   dayIndex?: number;
   minutes?: number;
+  model?: StudioModel;
+  theme?: StudioTheme;
 }
 
 type QueryValue = string | string[] | undefined;
@@ -47,6 +55,10 @@ export function parseViewQuery(params: Record<string, QueryValue>): ParsedView {
     const value = timeValueToMinutes(time);
     if (value !== null) parsed.minutes = value;
   }
+  const model = first(params, "model");
+  if (model !== undefined) parsed.model = parseStudioModel(model);
+  const theme = first(params, "theme");
+  if (theme !== undefined) parsed.theme = parseStudioTheme(theme);
   return parsed;
 }
 
@@ -59,6 +71,8 @@ export function serializeViewQuery(view: {
   longitude: number;
   date: Date;
   minutes: number;
+  model?: StudioModel;
+  theme?: StudioTheme;
 }): string {
   const minutes = ((Math.round(view.minutes) % 1440) + 1440) % 1440;
   const params = new URLSearchParams();
@@ -66,6 +80,8 @@ export function serializeViewQuery(view: {
   params.set("lng", trimNumber(view.longitude));
   params.set("date", isoFromDate(view.date));
   params.set("time", minutesToTimeValue(minutes));
+  if (view.model && view.model !== "astrolabe") params.set("model", view.model);
+  if (view.theme && view.theme !== "default") params.set("theme", view.theme);
   return params.toString();
 }
 

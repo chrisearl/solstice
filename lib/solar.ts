@@ -20,6 +20,10 @@ export const GNOMON_HEIGHT = 0.62;
 
 export const HORIZON_RATIO = SKY_RADIUS / DISC_RADIUS;
 
+/** Semi-transparent blue tint for the horizon disc interior. */
+export const DISC_FILL_COLOR = "#4a7ab8";
+export const DISC_FILL_OPACITY = 0.36;
+
 const DEG = Math.PI / 180;
 const SAMPLE_MINUTES = 8;
 /** Noon positions closer than this share one tube so the arcs don't flicker. */
