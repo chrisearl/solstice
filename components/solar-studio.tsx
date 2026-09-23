@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { PanelLeftOpen } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ControlPanel, StatRail } from "@/components/control-panel";
 import { InspectorPanel } from "@/components/inspector-panel";
 import { SceneHud } from "@/components/scene-hud";
@@ -10,13 +10,13 @@ import { GuardedScene } from "@/components/scene-boundary";
 import { SolarMotionProvider } from "@/components/solar-motion";
 import { TimelineSheet } from "@/components/timeline-sheet";
 import { ViewSwitcher } from "@/components/view-switcher";
-import { useDavinciUnlock } from "@/hooks/use-davinci-unlock";
 import { useInspectorLayout, useLayout } from "@/hooks/use-layout";
+import { useDavinciUnlocked } from "@/hooks/use-davinci-unlock";
 import { useSolarView } from "@/hooks/use-solar-view";
 import type { BodyId } from "@/lib/orrery";
 import { STUDIO_CHROME_TOP_CLASS } from "@/lib/layout-insets";
 import { resolveStudioView } from "@/lib/studio-view";
-import type { ParsedView } from "@/lib/view-query";
+import { serializeViewQuery, type ParsedView } from "@/lib/view-query";
 import { locationLabel, parseIsoDate } from "@/lib/format";
 
 const SolarScene = dynamic(() => import("@/components/solar-scene"), {
@@ -103,8 +103,14 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     () => initial?.model === "orrery",
   );
   const [readingsOpen, setReadingsOpen] = useState(false);
-  const { davinciUnlocked } = useDavinciUnlock();
+  const davinciUnlocked = useDavinciUnlocked();
   const view = resolveStudioView(studioModel, studioTheme, davinciUnlocked);
+
+  useEffect(() => {
+    if (studioTheme === "davinci" && davinciUnlocked) {
+      setDavinciMounted(true);
+    }
+  }, [studioTheme, davinciUnlocked]);
 
   const {
     breakpoint,
@@ -135,11 +141,18 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
     setStudioModel(next);
   };
 
-  const handleTheme = (next: typeof studioTheme) => {
-    if (next === "davinci" && !davinciUnlocked) return;
-    if (next === "davinci") setDavinciMounted(true);
-    setStudioTheme(next);
-  };
+  const settingsHref = useMemo(
+    () =>
+      `/settings?${serializeViewQuery({
+        latitude,
+        longitude,
+        date: model.date,
+        minutes,
+        model: studioModel,
+        theme: studioTheme,
+      })}`,
+    [latitude, longitude, model.date, minutes, studioModel, studioTheme],
+  );
 
   const showStudioChrome = !fullscreen;
   const parchment = view.theme === "davinci";
@@ -379,9 +392,8 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
             inline
             view={view}
             fullscreen={fullscreen}
-            davinciUnlocked={davinciUnlocked}
+            settingsHref={settingsHref}
             onModel={handleModel}
-            onTheme={handleTheme}
             onFullscreen={() => setFullscreen((value) => !value)}
             className="pointer-events-auto shrink-0"
           />
@@ -449,9 +461,8 @@ export function SolarStudio({ initial }: { initial?: ParsedView }) {
         <ViewSwitcher
           view={view}
           fullscreen={fullscreen}
-          davinciUnlocked={davinciUnlocked}
+          settingsHref={settingsHref}
           onModel={handleModel}
-          onTheme={handleTheme}
           onFullscreen={() => setFullscreen((value) => !value)}
         />
       )}

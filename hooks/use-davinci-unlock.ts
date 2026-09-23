@@ -27,8 +27,12 @@ function notifyUnlock() {
   unlockListeners.forEach((listener) => listener());
 }
 
+export function useDavinciUnlocked(): boolean {
+  return useSyncExternalStore(subscribeUnlock, readDavinciUnlocked, () => false);
+}
+
 export function useDavinciUnlock() {
-  const davinciUnlocked = useSyncExternalStore(subscribeUnlock, readDavinciUnlocked, () => false);
+  const davinciUnlocked = useDavinciUnlocked();
   const indexRef = useRef(0);
   const timeoutRef = useRef<number | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
