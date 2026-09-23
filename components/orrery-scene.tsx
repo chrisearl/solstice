@@ -91,9 +91,10 @@ function OrreryInstrument({
   return (
     <>
       <Stars radius={120} depth={40} count={3000} factor={3} saturation={0} fade speed={0.4} />
-      <ambientLight intensity={0.18} />
-      <hemisphereLight args={["#8eb4ff", "#0a0a12", 0.35]} />
-      <pointLight position={[0, 0, 0]} intensity={2.4} color="#fff4d0" distance={80} decay={2} />
+      <ambientLight intensity={0.34} />
+      <hemisphereLight args={["#9ec0ff", "#12131c", 0.52]} />
+      <directionalLight position={[4, 10, 6]} intensity={0.22} color="#c8d8f0" />
+      <pointLight position={[0, 0, 0]} intensity={2.8} color="#fff4d0" distance={120} decay={2} />
 
       <mesh position={[0, 0, 0]}>
         <sphereGeometry args={[0.55, 32, 32]} />
@@ -109,8 +110,8 @@ function OrreryInstrument({
             points={points}
             color={path.id === focusId ? "#ffffff" : "#ffffff"}
             transparent
-            opacity={path.id === focusId ? 0.35 : 0.12}
-            lineWidth={path.id === focusId ? 1.4 : 1}
+            opacity={path.id === focusId ? 0.42 : 0.2}
+            lineWidth={path.id === focusId ? 1.5 : 1.1}
           />
         );
       })}
@@ -257,8 +258,8 @@ function PlanetBody({
       <sphereGeometry args={[body.displayRadius * (focused ? 1.15 : 1), 24, 24]} />
       <meshStandardMaterial
         color={body.color}
-        emissive={focused ? body.color : "#000000"}
-        emissiveIntensity={focused ? 0.35 : 0}
+        emissive={body.color}
+        emissiveIntensity={focused ? 0.35 : 0.14}
         roughness={0.65}
         metalness={0.15}
       />
