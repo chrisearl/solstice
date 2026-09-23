@@ -381,12 +381,18 @@ export function maxOrrerySceneRadius(): number {
   return sceneRadiusFromAu(neptune.a * 1.05);
 }
 
+/** Mean orbital period in days from J2000 mean motion (degrees per day). */
+export function orbitalPeriodDays(element: Pick<OrbitalElement, "n">): number {
+  return 360 / element.n;
+}
+
 export function buildOrbitPaths(segments = 96): OrbitPath[] {
   const paths: OrbitPath[] = [];
   for (const element of PLANETS) {
+    const periodDays = orbitalPeriodDays(element);
     const points: Vec3[] = [];
     for (let i = 0; i <= segments; i++) {
-      const days = (i / segments) * element.a * element.n * 30;
+      const days = (i / segments) * periodDays;
       const au = heliocentricEcliptic(element, days);
       points.push(scaleToScene(au));
     }

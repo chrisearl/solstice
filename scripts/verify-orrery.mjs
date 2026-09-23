@@ -3,9 +3,11 @@ import test from "node:test";
 import {
   ALL_PLANET_IDS,
   buildOrreryModel,
+  buildOrbitPaths,
   bodyById,
   distanceAu,
   heliocentricLongitudeDeg,
+  orbitalPeriodDays,
   sceneRadiusFromAu,
 } from "../lib/orrery.ts";
 
@@ -105,4 +107,21 @@ test("heliocentric longitude helper matches body placement", () => {
   assert.ok(earth);
   const lon = heliocentricLongitudeDeg(earth.truePositionAu);
   assert.ok(Math.abs(lon - earth.heliocentricLongitudeDeg) < 0.01);
+});
+
+test("orbital period helper matches one Earth year", () => {
+  const earth = { n: 0.98564736 };
+  const period = orbitalPeriodDays(earth);
+  assert.ok(Math.abs(period - 365.25) < 0.5, `Earth period should be ~365 days, got ${period}`);
+});
+
+test("planet orbit paths close after one full period", () => {
+  const paths = buildOrbitPaths(96);
+  for (const path of paths) {
+    if (path.id === "moon") continue;
+    const first = path.points[0];
+    const last = path.points[path.points.length - 1];
+    const gap = Math.hypot(first.x - last.x, first.y - last.y, first.z - last.z);
+    assert.ok(gap < 0.08, `${path.id} orbit should close, gap=${gap.toFixed(3)}`);
+  }
 });
