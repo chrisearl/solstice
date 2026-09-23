@@ -9,6 +9,7 @@ import {
   KONAMI_STEP_TIMEOUT_MS,
   KONAMI_TAP_SLOP_PX,
   keyToKonamiStep,
+  DAVINCI_TEMPORARY_UNLOCK,
   readDavinciUnlocked,
   swipeToKonamiStep,
   tapToKonamiStep,
@@ -28,7 +29,11 @@ function notifyUnlock() {
 }
 
 export function useDavinciUnlocked(): boolean {
-  return useSyncExternalStore(subscribeUnlock, readDavinciUnlocked, () => false);
+  return useSyncExternalStore(
+    subscribeUnlock,
+    readDavinciUnlocked,
+    () => DAVINCI_TEMPORARY_UNLOCK,
+  );
 }
 
 export function useDavinciUnlock() {

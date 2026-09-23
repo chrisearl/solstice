@@ -1,5 +1,11 @@
 export const DAVINCI_UNLOCK_STORAGE_KEY = "solstice:davinci-unlocked";
 
+/**
+ * TEMPORARY: expose Da Vinci theme without the Konami Easter egg.
+ * Set back to false when the hidden unlock should gate the theme again.
+ */
+export const DAVINCI_TEMPORARY_UNLOCK = true;
+
 let sessionUnlocked = false;
 
 /** Classic Konami sequence ending with B, then A. */
@@ -23,6 +29,7 @@ export const KONAMI_SWIPE_MIN_PX = 36;
 export const KONAMI_TAP_SLOP_PX = 14;
 
 export function readDavinciUnlocked(): boolean {
+  if (DAVINCI_TEMPORARY_UNLOCK) return true;
   if (sessionUnlocked) return true;
   if (typeof window === "undefined") return false;
   try {
