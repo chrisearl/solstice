@@ -125,7 +125,48 @@ export function StudioSheet(props: StudioSheetProps) {
   const tone = props.tone ?? "night";
   const parchment = tone === "parchment";
 
-  const pageCount = 2;
+  const pages = useMemo(
+    () =>
+      props.studioModel === "orrery"
+        ? buildOrrerySheetPages(props, tone)
+        : buildAstrolabeSheetPages(props, tone),
+    [
+      props.studioModel,
+      props.playing,
+      props.loopDay,
+      props.loopYear,
+      props.astrolabeSpeed,
+      props.orrerySpeed,
+      props.samples,
+      props.orbitalSamples,
+      props.times,
+      props.model,
+      props.orreryModel,
+      props.focusPlanet,
+      props.moonModel,
+      props.sun,
+      props.moon,
+      props.showSun,
+      props.showMoon,
+      props.latitude,
+      props.longitude,
+      props.year,
+      props.dayIndex,
+      props.dayCount,
+      props.minutes,
+      props.realtime,
+      props.onMinutes,
+      props.onDayIndex,
+      props.onPlaying,
+      props.onLoopDay,
+      props.onLoopYear,
+      props.onAstrolabeSpeed,
+      props.onOrrerySpeed,
+      props.onResetView,
+      tone,
+    ],
+  );
+  const pageCount = pages.length;
   const expanded = state === "expanded";
   const wide = props.wide ?? false;
   const mobile = props.mobile ?? false;
@@ -145,6 +186,16 @@ export function StudioSheet(props: StudioSheetProps) {
   useEffect(() => {
     return () => onExpandedChange?.(false);
   }, [onExpandedChange]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [props.studioModel]);
+
+  useEffect(() => {
+    if (page >= pageCount) {
+      setPage(Math.max(0, pageCount - 1));
+    }
+  }, [page, pageCount]);
 
   const scrollToPage = useCallback((index: number) => {
     const el = scrollRef.current;
@@ -200,23 +251,17 @@ export function StudioSheet(props: StudioSheetProps) {
             onScroll={onScroll}
             className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            <div className="h-full min-h-0 w-full shrink-0 snap-start overflow-y-auto px-3 pb-2 md:px-4">
-              {props.studioModel === "orrery" ? (
-                <OrreryTimelinePage {...props} tone={tone} />
-              ) : (
-                <AstrolabeTimelinePage {...props} tone={tone} />
-              )}
-            </div>
-            <div className="h-full min-h-0 w-full shrink-0 snap-start overflow-y-auto px-3 pb-2 md:px-4">
-              {props.studioModel === "orrery" ? (
-                <OrreryReadingsPage {...props} tone={tone} />
-              ) : (
-                <AstrolabeReadingsPage {...props} tone={tone} onResetView={props.onResetView} />
-              )}
-            </div>
+            {pages.map((sheetPage) => (
+              <div
+                key={sheetPage.id}
+                className="h-full min-h-0 w-full shrink-0 snap-start overflow-y-auto px-3 pb-2 md:px-4"
+              >
+                {sheetPage.content}
+              </div>
+            ))}
           </div>
 
-          <PageDots count={pageCount} current={page} onSelect={scrollToPage} />
+          <PageDots pages={pages} current={page} onSelect={scrollToPage} />
         </>
       )}
     </aside>
@@ -406,24 +451,30 @@ function PlaybackControls(
   );
 }
 
+type SheetPage = {
+  id: string;
+  label: string;
+  content: React.ReactNode;
+};
+
 function PageDots({
-  count,
+  pages,
   current,
   onSelect,
 }: {
-  count: number;
+  pages: SheetPage[];
   current: number;
   onSelect: (index: number) => void;
 }) {
   return (
     <div className="flex items-center justify-center gap-1.5 pb-2.5" role="tablist" aria-label="Panel sections">
-      {Array.from({ length: count }, (_, i) => (
+      {pages.map((sheetPage, i) => (
         <button
-          key={i}
+          key={sheetPage.id}
           type="button"
           role="tab"
           aria-selected={i === current}
-          aria-label={`Section ${i + 1} of ${count}`}
+          aria-label={`${sheetPage.label}, page ${i + 1} of ${pages.length}`}
           onClick={() => onSelect(i)}
           className={`h-1.5 rounded-full transition-all ${
             i === current ? "w-4 bg-[#f0b429]" : "w-1.5 bg-white/25 hover:bg-white/40"
@@ -682,118 +733,248 @@ function CollapsiblePlayback(props: StudioSheetProps) {
   );
 }
 
-function AstrolabeReadingsPage(
-  props: StudioSheetProps & { tone: ChromeTone; onResetView: () => void },
-) {
-  const location = locationLabel(props.latitude, props.longitude);
-  const dateLabel = formatLongDate(props.model.date);
-  const seek = (instant: Date | null) => seekMinute(instant, props.model.date, props.longitude);
+function buildAstrolabeSheetPages(props: StudioSheetProps, tone: ChromeTone): SheetPage[] {
+  const pages: SheetPage[] = [
+    {
+      id: "timeline",
+      label: "Timeline",
+      content: <AstrolabeTimelinePage {...props} tone={tone} />,
+    },
+    {
+      id: "location",
+      label: "Location & date",
+      content: (
+        <ReadingPage label="Location & date">
+          <AstrolabeLocationContent {...props} />
+        </ReadingPage>
+      ),
+    },
+  ];
 
-  return (
-    <section className="space-y-3" aria-label="Readings">
-      <SectionLabel>Readings</SectionLabel>
+  if (props.showSun) {
+    pages.push({
+      id: "sun",
+      label: "Sun",
+      content: (
+        <ReadingPage label="Sun">
+          <AstrolabeSunContent {...props} />
+        </ReadingPage>
+      ),
+    });
+  }
 
-      <CollapsibleSection title="Location & date" defaultOpen>
-        <div className="flex items-center gap-2 text-white/70">
-          <MapPin className="size-3.5 shrink-0 text-[#f0b429]" />
-          <span className="truncate text-xs tracking-[0.12em] uppercase">{location}</span>
-        </div>
-        <p className="mt-1 text-[11px] text-white/45">{dateLabel}</p>
-      </CollapsibleSection>
+  if (props.showMoon) {
+    pages.push({
+      id: "moon",
+      label: "Moon",
+      content: (
+        <ReadingPage label="Moon">
+          <AstrolabeMoonContent {...props} />
+        </ReadingPage>
+      ),
+    });
+  }
 
-      {props.showSun && (
-        <CollapsibleSection title="Sun" defaultOpen>
-          <MetricRow icon={<Compass className="size-3.5" />} label="Azimuth" value={formatAzimuth(props.sun.azimuth)} />
-          <MetricRow
-            icon={<SunMedium className="size-3.5" />}
-            label="Altitude"
-            value={formatDegrees(props.sun.altitude)}
-            highlight={props.sun.aboveHorizon}
-          />
-          <div className="mt-2 grid grid-cols-3 gap-1">
-            <SeekChip
-              label="Rise"
-              value={riseLabel(props.model, props.longitude, "sunrise")}
-              onClick={clickSeek(seek(props.model.times.sunrise), props.onMinutes)}
-            />
-            <SeekChip
-              label="Noon"
-              value={formatMeanTime(props.model.times.solarNoon, props.longitude)}
-              onClick={clickSeek(seek(props.model.times.solarNoon), props.onMinutes)}
-            />
-            <SeekChip
-              label="Set"
-              value={riseLabel(props.model, props.longitude, "sunset")}
-              onClick={clickSeek(seek(props.model.times.sunset), props.onMinutes)}
-            />
-          </div>
-          <ChartReadingRows model={props.orreryModel} bodyId="sun" />
-        </CollapsibleSection>
-      )}
+  if (props.orreryModel.houses) {
+    pages.push({
+      id: "local-sky",
+      label: "Local sky",
+      content: (
+        <ReadingPage label="Local sky">
+          <LocalSkyContent model={props.orreryModel} />
+        </ReadingPage>
+      ),
+    });
+  }
 
-      {props.showMoon && (
-        <CollapsibleSection title="Moon" defaultOpen={!props.showSun}>
-          <MetricRow icon={<Compass className="size-3.5" />} label="Azimuth" value={formatAzimuth(props.moon.azimuth)} />
-          <MetricRow
-            icon={<Moon className="size-3.5" />}
-            label="Altitude"
-            value={formatDegrees(props.moon.altitude)}
-            highlight={props.moon.aboveHorizon}
-          />
-          <p className="mt-1 text-[11px] text-white/55">
+  pages.push({
+    id: "camera",
+    label: "Camera",
+    content: (
+      <ReadingPage label="Camera">
+        <button
+          type="button"
+          onClick={props.onResetView}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 py-2.5 text-[11px] tracking-[0.14em] text-white/60 uppercase hover:bg-white/10"
+        >
+          <RotateCcw className="size-3.5" />
+          Reset camera
+        </button>
+      </ReadingPage>
+    ),
+  });
+
+  return pages;
+}
+
+function buildOrrerySheetPages(props: StudioSheetProps, tone: ChromeTone): SheetPage[] {
+  const focusBody =
+    bodyById(props.orreryModel, props.focusPlanet) ?? bodyById(props.orreryModel, "earth");
+  const aspects = aspectsFor(props.orreryModel, props.focusPlanet).slice(0, 3);
+
+  const pages: SheetPage[] = [
+    {
+      id: "timeline",
+      label: "Orbital timeline",
+      content: <OrreryTimelinePage {...props} tone={tone} />,
+    },
+  ];
+
+  if (focusBody) {
+    pages.push({
+      id: "focus",
+      label: focusBody.name,
+      content: (
+        <ReadingPage label={focusBody.name}>
+          <OrreryFocusBodyContent {...props} focusBody={focusBody} />
+        </ReadingPage>
+      ),
+    });
+  }
+
+  if (aspects.length > 0) {
+    pages.push({
+      id: "aspects",
+      label: props.focusPlanet === "earth" ? "Solar aspects" : "Aspects",
+      content: (
+        <ReadingPage label={props.focusPlanet === "earth" ? "Solar aspects" : "Aspects"}>
+          <AspectListContent model={props.orreryModel} bodyId={props.focusPlanet} />
+        </ReadingPage>
+      ),
+    });
+  }
+
+  if (props.orreryModel.houses) {
+    pages.push({
+      id: "local-sky",
+      label: "Local sky",
+      content: (
+        <ReadingPage label="Local sky">
+          <LocalSkyContent model={props.orreryModel} />
+        </ReadingPage>
+      ),
+    });
+  }
+
+  if (props.focusPlanet === "moon" && props.showMoon) {
+    pages.push({
+      id: "moon-phase",
+      label: "Moon phase",
+      content: (
+        <ReadingPage label="Moon phase">
+          <p className="text-[11px] text-white/55">
             {props.moon.phaseLabel} · {Math.round(props.moon.fraction * 100)}% lit
           </p>
-          <ChartReadingRows model={props.orreryModel} bodyId="moon" />
-        </CollapsibleSection>
-      )}
+        </ReadingPage>
+      ),
+    });
+  }
 
-      <LocalSky model={props.orreryModel} />
+  return pages;
+}
 
-      <button
-        type="button"
-        onClick={props.onResetView}
-        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2 text-[11px] tracking-[0.14em] text-white/60 uppercase hover:bg-white/10"
-      >
-        <RotateCcw className="size-3.5" />
-        Reset camera
-      </button>
+function ReadingPage({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-3" aria-label={label}>
+      <SectionLabel>{label}</SectionLabel>
+      <div className="space-y-1.5 rounded-xl border border-white/8 bg-black/20 px-3 py-2">{children}</div>
     </section>
   );
 }
 
-function OrreryReadingsPage(props: StudioSheetProps & { tone: ChromeTone }) {
-  const focusBody =
-    bodyById(props.orreryModel, props.focusPlanet) ?? bodyById(props.orreryModel, "earth");
-  const dateLabel = formatLongDate(props.orreryModel.instant);
-
-  if (!focusBody) return null;
+function AstrolabeLocationContent(props: StudioSheetProps) {
+  const location = locationLabel(props.latitude, props.longitude);
+  const dateLabel = formatLongDate(props.model.date);
 
   return (
-    <section className="space-y-3" aria-label="Orbital readings">
-      <SectionLabel>Focus body</SectionLabel>
+    <>
+      <div className="flex items-center gap-2 text-white/70">
+        <MapPin className="size-3.5 shrink-0 text-[#f0b429]" />
+        <span className="truncate text-xs tracking-[0.12em] uppercase">{location}</span>
+      </div>
+      <p className="text-[11px] text-white/45">{dateLabel}</p>
+    </>
+  );
+}
 
-      <CollapsibleSection title={focusBody.name} defaultOpen>
-        <p className="text-[11px] text-white/45">{dateLabel}</p>
-        <div className="mt-2 space-y-1.5">
-          <MetricRow icon={<Compass className="size-3.5" />} label="Longitude" value={formatDegrees(focusBody.heliocentricLongitudeDeg)} />
-          <MetricRow icon={<SunMedium className="size-3.5" />} label="Distance" value={formatAu(focusBody.distanceAu)} />
-          <MetricRow icon={<SunMedium className="size-3.5" />} label="Orbit" value={formatOrbitalPhase(focusBody.orbitalPhase)} />
-          <MetricRow icon={<SunMedium className="size-3.5" />} label="Season" value={formatEarthSeason(props.orreryModel.earthSeason)} />
-          <ChartReadingRows model={props.orreryModel} bodyId={props.focusPlanet} />
-        </div>
-      </CollapsibleSection>
+function AstrolabeSunContent(props: StudioSheetProps) {
+  const seek = (instant: Date | null) => seekMinute(instant, props.model.date, props.longitude);
 
-      <AspectList model={props.orreryModel} bodyId={props.focusPlanet} />
-      <LocalSky model={props.orreryModel} />
+  return (
+    <>
+      <MetricRow icon={<Compass className="size-3.5" />} label="Azimuth" value={formatAzimuth(props.sun.azimuth)} />
+      <MetricRow
+        icon={<SunMedium className="size-3.5" />}
+        label="Altitude"
+        value={formatDegrees(props.sun.altitude)}
+        highlight={props.sun.aboveHorizon}
+      />
+      <div className="mt-2 grid grid-cols-3 gap-1">
+        <SeekChip
+          label="Rise"
+          value={riseLabel(props.model, props.longitude, "sunrise")}
+          onClick={clickSeek(seek(props.model.times.sunrise), props.onMinutes)}
+        />
+        <SeekChip
+          label="Noon"
+          value={formatMeanTime(props.model.times.solarNoon, props.longitude)}
+          onClick={clickSeek(seek(props.model.times.solarNoon), props.onMinutes)}
+        />
+        <SeekChip
+          label="Set"
+          value={riseLabel(props.model, props.longitude, "sunset")}
+          onClick={clickSeek(seek(props.model.times.sunset), props.onMinutes)}
+        />
+      </div>
+      <ChartReadingRows model={props.orreryModel} bodyId="sun" />
+    </>
+  );
+}
 
-      {props.focusPlanet === "moon" && props.showMoon && (
-        <CollapsibleSection title="Moon phase">
-          <p className="text-[11px] text-white/55">
-            {props.moon.phaseLabel} · {Math.round(props.moon.fraction * 100)}% lit
-          </p>
-        </CollapsibleSection>
-      )}
-    </section>
+function AstrolabeMoonContent(props: StudioSheetProps) {
+  return (
+    <>
+      <MetricRow icon={<Compass className="size-3.5" />} label="Azimuth" value={formatAzimuth(props.moon.azimuth)} />
+      <MetricRow
+        icon={<Moon className="size-3.5" />}
+        label="Altitude"
+        value={formatDegrees(props.moon.altitude)}
+        highlight={props.moon.aboveHorizon}
+      />
+      <p className="text-[11px] text-white/55">
+        {props.moon.phaseLabel} · {Math.round(props.moon.fraction * 100)}% lit
+      </p>
+      <ChartReadingRows model={props.orreryModel} bodyId="moon" />
+    </>
+  );
+}
+
+function OrreryFocusBodyContent(
+  props: StudioSheetProps & { focusBody: NonNullable<ReturnType<typeof bodyById>> },
+) {
+  const dateLabel = formatLongDate(props.orreryModel.instant);
+
+  return (
+    <>
+      <p className="text-[11px] text-white/45">{dateLabel}</p>
+      <MetricRow
+        icon={<Compass className="size-3.5" />}
+        label="Longitude"
+        value={formatDegrees(props.focusBody.heliocentricLongitudeDeg)}
+      />
+      <MetricRow icon={<SunMedium className="size-3.5" />} label="Distance" value={formatAu(props.focusBody.distanceAu)} />
+      <MetricRow
+        icon={<SunMedium className="size-3.5" />}
+        label="Orbit"
+        value={formatOrbitalPhase(props.focusBody.orbitalPhase)}
+      />
+      <MetricRow
+        icon={<SunMedium className="size-3.5" />}
+        label="Season"
+        value={formatEarthSeason(props.orreryModel.earthSeason)}
+      />
+      <ChartReadingRows model={props.orreryModel} bodyId={props.focusPlanet} />
+    </>
   );
 }
 
@@ -818,11 +999,10 @@ function ChartReadingRows({ model, bodyId }: { model: OrreryModel; bodyId: Plane
   );
 }
 
-function AspectList({ model, bodyId }: { model: OrreryModel; bodyId: PlanetId | "moon" }) {
+function AspectListContent({ model, bodyId }: { model: OrreryModel; bodyId: PlanetId | "moon" }) {
   const aspects = aspectsFor(model, bodyId).slice(0, 3);
-  if (aspects.length === 0) return null;
   return (
-    <CollapsibleSection title={bodyId === "earth" ? "Solar aspects" : "Aspects"} defaultOpen>
+    <>
       {aspects.map((aspect) => (
         <MetricRow
           key={`${aspect.fromId}-${aspect.toId}`}
@@ -831,15 +1011,15 @@ function AspectList({ model, bodyId }: { model: OrreryModel; bodyId: PlanetId | 
           value={formatAspectOrb(aspect)}
         />
       ))}
-    </CollapsibleSection>
+    </>
   );
 }
 
-function LocalSky({ model }: { model: OrreryModel }) {
+function LocalSkyContent({ model }: { model: OrreryModel }) {
   const houses = model.houses;
   if (!houses) return null;
   return (
-    <CollapsibleSection title="Local sky" defaultOpen>
+    <>
       <MetricRow
         icon={<Compass className="size-3.5" />}
         label="Ascendant"
@@ -850,7 +1030,7 @@ function LocalSky({ model }: { model: OrreryModel }) {
         label="Midheaven"
         value={`${houses.midheaven.sign.glyph} ${formatSignDegree(houses.midheaven)} ${houses.midheaven.sign.name}`}
       />
-    </CollapsibleSection>
+    </>
   );
 }
 
