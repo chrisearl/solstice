@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Caveat, Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
 import { AppProviders } from "@/components/app-providers";
 import "./globals.css";
 
@@ -46,7 +45,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="h-full overflow-hidden bg-[#07080d] text-[#f3efe6]">
         <AppProviders>{children}</AppProviders>
-        <Analytics />
       </body>
     </html>
   );

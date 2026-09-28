@@ -58,12 +58,6 @@ Times on the clock and on the sun events are mean solar time for the chosen long
 
 ## Deploy
 
-The app is a standard Next.js project. Vercel detects the framework with no extra build settings.
-
-```bash
-gh repo create solstice --source=. --public --push
-vercel link
-vercel --prod
-```
+The app is a standard Next.js project. Build with `pnpm build`, then serve with `pnpm start` or any Node.js host that supports Next.js.
 
 A GitHub Actions workflow builds the app and runs the solar checks on every push.
